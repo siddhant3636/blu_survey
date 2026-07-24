@@ -1,0 +1,36 @@
+.survey-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.wizard-steps {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.step-indicator {
+  font-size: 14px;
+  color: var(--text-secondary);
+  position: relative;
+}
+
+.step-indicator.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.asset-survey-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 768px) {
+  .asset-survey-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

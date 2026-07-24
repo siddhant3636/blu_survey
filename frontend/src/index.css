@@ -1,0 +1,9 @@
+@import "./styles/variables.css";
+@import "./styles/global.css";
+@import "./styles/layout.css";
+@import "./styles/forms.css";
+@import "./styles/table.css";
+@import "./styles/dashboard.css";
+@import "./styles/survey.css";
+@import "./styles/responsive.css";
+@import "./styles/login.css";

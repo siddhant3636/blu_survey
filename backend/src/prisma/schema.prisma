@@ -1,0 +1,343 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ------------------------------------
+// USERS & AUTH
+// ------------------------------------
+model User {
+  id                 String             @id @default(uuid())
+  email              String             @unique
+  name               String
+  password           String
+  role               String             @default("SURVEY_PERSON") // ADMIN, SUB_ADMIN, SURVEY_PERSON
+  phone              String?
+  isActive           Boolean            @default(true)
+  isDeleted          Boolean            @default(false)
+  deletedAt          DateTime?
+  createdBy          String?
+  updatedBy          String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  assignments        SurveyAssignment[]
+  surveysInitiated   Survey[]           @relation("InitiatedSurveys")
+  surveysReviewed    Survey[]           @relation("ReviewedSurveys")
+  lockedChargers     Charger[]          @relation("LockedChargers")
+  lockedPanels       Panel[]            @relation("LockedPanels")
+  lockedTransformers Transformer[]      @relation("LockedTransformers")
+  lockedDGs          DG[]               @relation("LockedDGs")
+}
+
+// ------------------------------------
+// SURVEY SITES & ASSIGNMENTS
+// ------------------------------------
+model SurveySite {
+  id               String             @id @default(uuid())
+  siteId           String?            @unique
+  name             String
+  concessionaire   String?
+  landOwningAgency String?
+  address          String
+  latitude         Float?
+  longitude        Float?
+  status           String             @default("PENDING") // PENDING, ASSIGNED, IN_PROGRESS, COMPLETED
+  isDeleted        Boolean            @default(false)
+  deletedAt        DateTime?
+  createdBy        String?
+  updatedBy        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  assignments      SurveyAssignment[]
+  surveys          Survey[]
+}
+
+model SurveyAssignment {
+  id           String     @id @default(uuid())
+  surveySiteId String
+  surveyorId   String
+  assignedDate DateTime   @default(now())
+  status       String     @default("ASSIGNED") // ASSIGNED, IN_PROGRESS, COMPLETED
+  isDeleted    Boolean    @default(false)
+  deletedAt    DateTime?
+  createdBy    String?
+  updatedBy    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  surveySite   SurveySite @relation(fields: [surveySiteId], references: [id], onDelete: Cascade)
+  surveyor     User       @relation(fields: [surveyorId], references: [id], onDelete: Cascade)
+
+  @@unique([surveySiteId, surveyorId])
+}
+
+// ------------------------------------
+// SURVEY CONTAINER
+// ------------------------------------
+model Survey {
+  id                String        @id @default(uuid())
+  surveySiteId      String
+  createdById       String        // Survey Person who initiated Step 1
+  status            String        @default("DRAFT") // DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, RETURNED
+  reviewRemarks     String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  totalChargers        Int           @default(0)
+  totalPanels          Int           @default(0)
+  totalTransformers    Int           @default(0)
+  totalDG              Int           @default(0)
+  surveyDate           String?
+  surveyTime           String?
+  buildingName         String?
+  operator             String?
+  city                 String?
+  pincode              String?
+  latitude             Float?
+  longitude            Float?
+  accessPersonName     String?
+  accessPersonMobile   String?
+  parkingArea          String?
+  internetAvailability String?
+  remarks              String?
+  submittedAt          DateTime?
+  isDeleted            Boolean       @default(false)
+  deletedAt            DateTime?
+  createdBy            String?
+  updatedBy            String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  surveySite        SurveySite    @relation(fields: [surveySiteId], references: [id], onDelete: Cascade)
+  createdBySurveyor User          @relation("InitiatedSurveys", fields: [createdById], references: [id])
+  reviewedBy        User?         @relation("ReviewedSurveys", fields: [reviewedById], references: [id])
+  
+  chargers          Charger[]
+  panels            Panel[]
+  transformers      Transformer[]
+  dgs               DG[]
+  photos            Photo[]
+}
+
+// ------------------------------------
+// ASSET TABLES WITH CONCURRENT LOCKS
+// ------------------------------------
+model Charger {
+  id             String               @id @default(uuid())
+  surveyId       String
+  assetIndex     Int                  @default(1)
+  manufacturerId String?
+  modelId        String?
+  connectorId    String?
+  mccbMakerId    String?
+  mcbMakerId     String?
+  serialNumber   String?
+  powerRating    String?
+  mccb4p         String?
+  mcb2p          String?
+  mcb4p          String?
+  voltage        String?
+  chargerType    String?
+  chargerCategory String?
+  currentStatus  String?
+  displayWorking String?
+  cableCondition String?
+  earthingStatus String?
+  fireSafety     String?
+  lightingStatus String?
+  remarks        String?
+  latitude       Float?
+  longitude      Float?
+  status         String               @default("AVAILABLE") // AVAILABLE, IN_PROGRESS, COMPLETED
+  lockedByUserId String?
+  lockedAt       DateTime?
+  isDeleted      Boolean              @default(false)
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  survey         Survey               @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  manufacturer   ChargerManufacturer? @relation(fields: [manufacturerId], references: [id])
+  model          ChargerModel?        @relation(fields: [modelId], references: [id])
+  connector      Connector?           @relation(fields: [connectorId], references: [id])
+  mccbMaker      Equipment?           @relation("MccbMakerEquipment", fields: [mccbMakerId], references: [id])
+  mcbMaker       Equipment?           @relation("McbMakerEquipment", fields: [mcbMakerId], references: [id])
+  lockedByUser   User?                @relation("LockedChargers", fields: [lockedByUserId], references: [id])
+}
+
+model Panel {
+  id              String    @id @default(uuid())
+  surveyId        String
+  assetIndex      Int       @default(1)
+  name            String?
+  capacity        String?
+  incomingSource  String?
+  breakerRating   String?
+  cableSize       String?
+  latitude        Float?
+  longitude       Float?
+  status          String    @default("AVAILABLE") // AVAILABLE, IN_PROGRESS, COMPLETED
+  lockedByUserId  String?
+  lockedAt        DateTime?
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  survey          Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  lockedByUser    User?     @relation("LockedPanels", fields: [lockedByUserId], references: [id])
+}
+
+model Transformer {
+  id              String    @id @default(uuid())
+  surveyId        String
+  assetIndex      Int       @default(1)
+  capacityKVA     Float?
+  voltageRatio    String?
+  currentRating   String?
+  oilLevelOk      Boolean   @default(true)
+  earthingStatus  String?
+  latitude        Float?
+  longitude       Float?
+  status          String    @default("AVAILABLE") // AVAILABLE, IN_PROGRESS, COMPLETED
+  lockedByUserId  String?
+  lockedAt        DateTime?
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  survey          Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  lockedByUser    User?     @relation("LockedTransformers", fields: [lockedByUserId], references: [id])
+}
+
+model DG {
+  id              String    @id @default(uuid())
+  surveyId        String
+  assetIndex      Int       @default(1)
+  capacityKVA     Float?
+  fuelTankLitres  Float?
+  amfPanelPresent Boolean   @default(false)
+  earthingStatus  String?
+  latitude        Float?
+  longitude       Float?
+  status          String    @default("AVAILABLE") // AVAILABLE, IN_PROGRESS, COMPLETED
+  lockedByUserId  String?
+  lockedAt        DateTime?
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  survey          Survey    @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  lockedByUser    User?     @relation("LockedDGs", fields: [lockedByUserId], references: [id])
+}
+
+// ------------------------------------
+// PHOTOS & MASTERS
+// ------------------------------------
+model Photo {
+  id          String        @id @default(uuid())
+  surveyId    String
+  categoryId  String
+  filePath    String
+  fileName    String
+  fileSize    Int
+  latitude    Float?
+  longitude   Float?
+  capturedAt  DateTime?
+  isDeleted   Boolean       @default(false)
+  deletedAt   DateTime?
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  survey      Survey        @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  category    PhotoCategory @relation(fields: [categoryId], references: [id])
+}
+
+model ChargerManufacturer {
+  id        String         @id @default(uuid())
+  name      String         @unique
+  isActive  Boolean        @default(true)
+  isDeleted Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  chargers  Charger[]
+  models    ChargerModel[]
+}
+
+model ChargerModel {
+  id             String              @id @default(uuid())
+  manufacturerId String
+  name           String
+  powerRating    String
+  isActive       Boolean             @default(true)
+  isDeleted      Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  manufacturer   ChargerManufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  chargers       Charger[]
+
+  @@unique([manufacturerId, name])
+}
+
+model Connector {
+  id        String    @id @default(uuid())
+  type      String    @unique
+  isActive  Boolean   @default(true)
+  isDeleted Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  chargers  Charger[]
+}
+
+model Equipment {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  isDeleted   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  mccbChargers Charger[] @relation("MccbMakerEquipment")
+  mcbChargers  Charger[] @relation("McbMakerEquipment")
+}
+
+model PhotoCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  photos      Photo[]
+}
+
+model Settings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
