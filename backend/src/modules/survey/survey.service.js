@@ -418,18 +418,48 @@ const lockAsset = async (userId, { assetType, assetId }) => {
 
     if (!asset) throw new Error("Asset record not found.");
 
+    // Fetch user and verify permission
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { role: true }
+    });
+    const isUserAdmin = user && (user.role === "ADMIN" || user.role === "SUB_ADMIN");
+
+    // Fetch survey and verify surveyor assignment
+    const survey = await tx.survey.findUnique({
+      where: { id: asset.surveyId },
+      include: {
+        surveySite: {
+          include: {
+            assignments: {
+              where: { isDeleted: false }
+            }
+          }
+        }
+      }
+    });
+
+    if (!isUserAdmin && survey) {
+      const isAssigned = survey.createdById === userId || survey.surveySite?.assignments?.some((a) => a.surveyorId === userId);
+      if (!isAssigned) {
+        throw new Error("Access denied. You are not assigned to this survey.");
+      }
+    }
+
     const now = new Date();
     const isLockedByOther = asset.lockedByUserId && asset.lockedByUserId !== userId;
     const isLockExpired = asset.lockedAt && (now.getTime() - new Date(asset.lockedAt).getTime() > 5 * 60 * 1000); // 5 minutes timeout
 
-    if (asset.status === "COMPLETED") {
-      if (asset.lockedByUserId && asset.lockedByUserId !== userId) {
-        throw new Error(`This equipment item is already completed by ${asset.lockedByUser?.name || "another surveyor"}.`);
+    if (!isUserAdmin) {
+      if (asset.status === "COMPLETED") {
+        if (asset.lockedByUserId && asset.lockedByUserId !== userId) {
+          throw new Error(`This equipment item is already completed by ${asset.lockedByUser?.name || "another surveyor"}.`);
+        }
       }
-    }
 
-    if (isLockedByOther && !isLockExpired) {
-      throw new Error(`This equipment item is currently locked/being edited by ${asset.lockedByUser?.name || "another surveyor"}.`);
+      if (isLockedByOther && !isLockExpired) {
+        throw new Error(`This equipment item is currently locked/being edited by ${asset.lockedByUser?.name || "another surveyor"}.`);
+      }
     }
 
     return tx[assetType.toLowerCase()].update({
@@ -679,6 +709,21 @@ const submitSurvey = async (userId, surveyId) => {
     const err = new Error("Survey not found.");
     err.statusCode = 404;
     throw err;
+  }
+
+  // Verify authorization
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true }
+  });
+  const isAdmin = user && (user.role === "ADMIN" || user.role === "SUB_ADMIN");
+  if (!isAdmin && survey.createdById !== userId) {
+    const isAssigned = survey.surveySite?.assignments?.some((a) => a.surveyorId === userId && !a.isDeleted);
+    if (!isAssigned) {
+      const err = new Error("Access denied. You are not assigned to this survey.");
+      err.statusCode = 403;
+      throw err;
+    }
   }
 
   // 1. Verify Step 1 basic info exists

@@ -24,7 +24,12 @@ router.post("/unlock-asset", validate(lockAssetSchema), surveyController.unlockA
 router.post("/save-asset", validate(saveAssetSchema), surveyController.saveAssetData);
 
 router.post("/:id/submit", surveyController.submitSurvey);
-router.put("/:id", surveyController.updateSurvey);
+
+router.put(
+  "/:id",
+  authorize("ADMIN", "SUB_ADMIN", "MANAGER"),
+  surveyController.updateSurvey
+);
 
 router.post(
   "/:id/review",

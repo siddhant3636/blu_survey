@@ -133,7 +133,22 @@ const createAssignment = async (data, user) => {
   return createdAssignments;
 };
 
-const updateAssignmentStatus = async (id, status) => {
+const updateAssignmentStatus = async (id, status, user) => {
+  const assignment = await prisma.surveyAssignment.findUnique({
+    where: { id },
+  });
+  if (!assignment) {
+    throw new Error("Assignment not found.");
+  }
+
+  // Authorize: Only the assigned surveyor or an admin/sub-admin/manager can modify
+  const isAdmin = user.role === "ADMIN" || user.role === "SUB_ADMIN" || user.role === "MANAGER";
+  if (!isAdmin && assignment.surveyorId !== user.id) {
+    const err = new Error("Access denied. You are not authorized to update this assignment.");
+    err.statusCode = 403;
+    throw err;
+  }
+
   return prisma.surveyAssignment.update({
     where: { id },
     data: { status },

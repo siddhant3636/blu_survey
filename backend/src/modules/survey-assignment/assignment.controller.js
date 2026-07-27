@@ -26,7 +26,8 @@ const updateStatus = async (req, res, next) => {
   try {
     const assignment = await assignmentService.updateAssignmentStatus(
       req.params.id,
-      req.body.status
+      req.body.status,
+      req.user
     );
     return apiResponse.success(res, "Assignment status updated successfully", { assignment });
   } catch (error) {
