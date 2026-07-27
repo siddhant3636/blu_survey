@@ -21,7 +21,7 @@ const getSurvey = async (req, res, next) => {
 
 const getSurveyBySite = async (req, res, next) => {
   try {
-    const survey = await surveyService.getSurveyBySiteId(req.params.siteId);
+    const survey = await surveyService.getSurveyBySiteId(req.params.siteId, req.user);
     return apiResponse.success(res, "Survey details fetched successfully", { survey });
   } catch (error) {
     next(error);
@@ -33,6 +33,9 @@ const initiateStep1 = async (req, res, next) => {
     const survey = await surveyService.initiateStep1(req.user.id, req.body);
     return apiResponse.success(res, "Step 1 completed and assets auto-generated successfully", { survey }, 201);
   } catch (error) {
+    if (error.message.includes("completed by")) {
+      return apiResponse.conflict(res, error.message);
+    }
     return apiResponse.badRequest(res, error.message);
   }
 };
@@ -42,6 +45,9 @@ const lockAsset = async (req, res, next) => {
     const locked = await surveyService.lockAsset(req.user.id, req.body);
     return apiResponse.success(res, "Asset locked for exclusive survey", { asset: locked });
   } catch (error) {
+    if (error.message.includes("locked/being edited") || error.message.includes("completed by")) {
+      return apiResponse.conflict(res, error.message);
+    }
     return apiResponse.badRequest(res, error.message);
   }
 };
@@ -60,6 +66,9 @@ const saveAssetData = async (req, res, next) => {
     const asset = await surveyService.saveAssetData(req.user.id, req.body);
     return apiResponse.success(res, "Asset survey saved and completed successfully", { asset });
   } catch (error) {
+    if (error.statusCode === 409 || error.message.includes("being edited") || error.message.includes("expired")) {
+      return apiResponse.conflict(res, error.message);
+    }
     return apiResponse.badRequest(res, error.message);
   }
 };

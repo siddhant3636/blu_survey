@@ -7,8 +7,9 @@ import Button from "../../components/common/Button";
 import Camera from "../../components/common/Camera";
 import GPS from "../../components/common/GPS";
 import Loader from "../../components/common/Loader";
-import { useUpload } from "../../hooks/useUpload";
-import { Camera as CameraIcon, Trash2, CheckCircle2 } from "lucide-react";
+import SinglePhotoUploader from "../../components/common/SinglePhotoUploader";
+import { Camera as CameraIcon, Trash2, CheckCircle2, Upload } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const DG_PHOTO_SECTIONS = [
   { id: "Front View", label: "Front View", icon: "📷", desc: "Front view of Canopy & Control Panel" },
@@ -21,12 +22,16 @@ const DGSurvey = () => {
   const [searchParams] = useSearchParams();
   const assetId = searchParams.get("assetId");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
   const [assetIndex, setAssetIndex] = useState(1);
+
+  const [isLockedByOther, setIsLockedByOther] = useState(false);
+  const [lockOwnerName, setLockOwnerName] = useState("");
 
   const [form, setForm] = useState({
     capacityKVA: "",
@@ -37,12 +42,9 @@ const DGSurvey = () => {
 
   // DG Photos & Camera state
   const [dgPhotos, setDgPhotos] = useState([]);
+  const [surveyStatus, setSurveyStatus] = useState("DRAFT");
   const [activePhotoSection, setActivePhotoSection] = useState(null);
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
-
-  const { uploadFile, progress, loading: uploading } = useUpload(
-    `${import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"}/photos`
-  );
 
   const fetchPhotos = async () => {
     try {
@@ -54,10 +56,55 @@ const DGSurvey = () => {
   };
 
   useEffect(() => {
+    const lockAsset = async () => {
+      if (!assetId) return;
+      try {
+        await surveyService.lockAsset("dg", assetId);
+        setIsLockedByOther(false);
+      } catch (err) {
+        if (err.response?.status === 409) {
+          setIsLockedByOther(true);
+          setLockOwnerName(err.response?.data?.message || "another surveyor");
+        } else {
+          console.error("Lock error:", err);
+        }
+      }
+    };
+    lockAsset();
+  }, [assetId]);
+
+  useEffect(() => {
+    const isReadOnlyLocal = isLockedByOther || ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+    if (isReadOnlyLocal || !assetId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        await surveyService.lockAsset("dg", assetId);
+      } catch (err) {
+        console.error("Failed to renew lock:", err);
+      }
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [assetId, isLockedByOther, surveyStatus]);
+
+  useEffect(() => {
+    return () => {
+      const isReadOnlyLocal = isLockedByOther || ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+      if (!isReadOnlyLocal && assetId) {
+        surveyService.unlockAsset("dg", assetId).catch(console.error);
+      }
+    };
+  }, [assetId, isLockedByOther, surveyStatus]);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await surveyService.getSurvey(surveyId);
         const sData = res.data?.data?.survey || res.data?.survey;
+        if (sData?.status) {
+          setSurveyStatus(sData.status);
+        }
         const targetAsset = (sData?.dgs || []).find((d) => d.id === assetId);
         if (targetAsset) {
           setAssetIndex(targetAsset.assetIndex);
@@ -92,47 +139,19 @@ const DGSurvey = () => {
     setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
-  const handlePhotoCapture = async (base64Img, targetSecLabel) => {
-    const label = targetSecLabel || activePhotoSection;
-    if (!label) return;
-
-    const categoryId = `DG #${assetIndex} - ${label}`;
-
-    try {
-      const resBlob = await fetch(base64Img);
-      const blob = await resBlob.blob();
-      const file = new File([blob], `dg_${assetIndex}_${label.replace(/\s+/g, "_")}-${Date.now()}.jpg`, { type: "image/jpeg" });
-
-      await uploadFile(file, {
-        surveyId,
-        categoryId,
-        latitude: coordinates.latitude || "",
-        longitude: coordinates.longitude || "",
-      });
-
-      setActivePhotoSection(null);
-      setErrors((prev) => ({ ...prev, [`photo_${label}`]: null }));
-      fetchPhotos();
-    } catch (err) {
-      alert(err || "Photo upload failed");
-    }
-  };
-
-  const handlePhotoDelete = async (photoId) => {
-    try {
-      await surveyService.removePhoto(photoId);
-      fetchPhotos();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const findMatchedPhoto = (secLabel) => {
-    const expectedCategory = `DG #${assetIndex} - ${secLabel}`.toLowerCase();
-    const fallbackCategory = `DG ${secLabel}`.toLowerCase();
+    const targetLabel = secLabel.toLowerCase();
+    const expectedCategory = `dg #${assetIndex} - ${targetLabel}`;
     return dgPhotos.find((p) => {
       const name = (p.category?.name || "").toLowerCase();
-      return name === expectedCategory || (assetIndex === 1 && (name === fallbackCategory || (name.includes("dg") && name.includes(secLabel.toLowerCase()))));
+      if (name === expectedCategory) return true;
+      if (name.includes(targetLabel)) {
+        if (name.includes(`#${assetIndex}`) || name.includes(`dg ${assetIndex}`) || name.includes(`dg_${assetIndex}`)) {
+          return true;
+        }
+        if (dgPhotos.length <= 3) return true;
+      }
+      return false;
     });
   };
 
@@ -213,7 +232,26 @@ const DGSurvey = () => {
     }
   };
 
+  const isReadOnly = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+
   if (loading) return <Loader />;
+
+  if (isLockedByOther) {
+    return (
+      <div style={{ maxWidth: "500px", margin: "80px auto", textAlign: "center" }}>
+        <Card style={{ border: "1px solid var(--danger)", padding: "24px" }}>
+          <div style={{ fontSize: "40px", marginBottom: "16px" }}>🔒</div>
+          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "var(--danger)", marginBottom: "12px" }}>Access Denied</h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "24px" }}>
+            This form is currently being filled by {lockOwnerName || "another surveyor"}. To prevent concurrent edits, you cannot view or edit this form while it is locked.
+          </p>
+          <Button variant="secondary" onClick={() => navigate(`/survey/assets/${surveyId}`)}>
+            Back to Assets Matrix
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: "700px", margin: "0 auto" }}>
@@ -231,19 +269,19 @@ const DGSurvey = () => {
       <Card>
         <form onSubmit={handleSubmit}>
           <div id="field-capacityKVA">
-            <Input label="Capacity in KVA" name="capacityKVA" type="number" step="any" min="0.01" value={form.capacityKVA} onChange={handleChange} required placeholder="e.g. 125" error={errors.capacityKVA} />
+            <Input label="Capacity in KVA" name="capacityKVA" type="number" step="any" min="0.01" value={form.capacityKVA} onChange={handleChange} required placeholder="e.g. 125" error={errors.capacityKVA} disabled={isReadOnly} />
           </div>
 
           <div id="field-fuelTankLitres">
-            <Input label="Fuel Tank Capacity (Litres)" name="fuelTankLitres" type="number" step="any" min="0.01" value={form.fuelTankLitres} onChange={handleChange} required placeholder="e.g. 200" error={errors.fuelTankLitres} />
+            <Input label="Fuel Tank Capacity (Litres)" name="fuelTankLitres" type="number" step="any" min="0.01" value={form.fuelTankLitres} onChange={handleChange} required placeholder="e.g. 200" error={errors.fuelTankLitres} disabled={isReadOnly} />
           </div>
 
           <div id="field-earthingStatus">
-            <Input label="Earthing Pit Condition" name="earthingStatus" value={form.earthingStatus} onChange={handleChange} required placeholder="e.g. Dedicated neutral earthing present" error={errors.earthingStatus} />
+            <Input label="Earthing Pit Status & Condition" name="earthingStatus" value={form.earthingStatus} onChange={handleChange} required placeholder="e.g. Dedicated neutral earthing present" error={errors.earthingStatus} disabled={isReadOnly} />
           </div>
 
           <div className="form-group" style={{ display: "flex", gap: "10px", alignItems: "center", margin: "16px 0" }}>
-            <input type="checkbox" name="amfPanelPresent" checked={form.amfPanelPresent} onChange={handleChange} id="chk-amf" />
+            <input type="checkbox" name="amfPanelPresent" checked={form.amfPanelPresent} onChange={handleChange} id="chk-amf" disabled={isReadOnly} />
             <label htmlFor="chk-amf" style={{ fontSize: "14px", cursor: "pointer" }}>Auto Main Failure (AMF) Changeover Panel Present</label>
           </div>
 
@@ -252,7 +290,15 @@ const DGSurvey = () => {
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
               <h4 style={{ fontSize: "14px", fontWeight: "700" }}>📍 GPS Location Tagging <span style={{ color: "var(--danger)" }}>*</span></h4>
             </div>
-            <GPS onCoordinatesFetched={(c) => { setCoordinates(c); setErrors((prev) => ({ ...prev, gps: null })); }} />
+            {!isReadOnly ? (
+              <GPS onCoordinatesFetched={(c) => { setCoordinates(c); setErrors((prev) => ({ ...prev, gps: null })); }} />
+            ) : (
+              coordinates.latitude && (
+                <div style={{ padding: "10px", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: "6px", fontSize: "13px" }}>
+                  Tagged Location: Lat {coordinates.latitude.toFixed(6)}, Lng {coordinates.longitude.toFixed(6)}
+                </div>
+              )
+            )}
             {errors.gps && <p style={{ color: "var(--danger)", fontSize: "12px", marginTop: "6px" }}>{errors.gps}</p>}
           </div>
 
@@ -265,109 +311,35 @@ const DGSurvey = () => {
               Capture or upload 3 required angle photos of this diesel generator set.
             </p>
 
-            {uploading && (
-              <div style={{ padding: "10px", backgroundColor: "rgba(99, 102, 241, 0.1)", borderRadius: "8px", marginBottom: "12px" }}>
-                <p style={{ fontSize: "12px", fontWeight: "600" }}>Uploading DG Photo... {progress}%</p>
-              </div>
-            )}
-
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
               {DG_PHOTO_SECTIONS.map((sec) => {
                 const matched = findMatchedPhoto(sec.label);
-                const hasError = errors[`photo_${sec.label}`];
+                const validationError = errors[`photo_${sec.label}`];
 
                 return (
-                  <div
+                  <SinglePhotoUploader
                     key={sec.id}
-                    id={`field-photo_${sec.label}`}
-                    style={{
-                      padding: "14px",
-                      borderRadius: "8px",
-                      border: hasError ? "1px solid var(--danger)" : "1px solid var(--border-color)",
-                      backgroundColor: "var(--bg-color)",
-                      display: "flex",
-                      flexDirection: "column",
-                      justify: "space-between"
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <span style={{ fontSize: "13px", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
-                          {sec.icon} {sec.label} <span style={{ color: "var(--danger)" }}>*</span>
-                        </span>
-                        {matched && <CheckCircle2 size={16} style={{ color: "#10b981" }} />}
-                      </div>
-
-                      {matched ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <div style={{ width: "100%", height: "110px", borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)" }}>
-                            <img
-                              src={`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace("/api/v1", "") : "http://localhost:5000"}${matched.url}`}
-                              alt={sec.label}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            />
-                          </div>
-                          <p style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
-                            📍 {matched.latitude ? `${matched.latitude.toFixed(3)}, ${matched.longitude.toFixed(3)}` : "No GPS"}
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          {activePhotoSection === sec.label ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <Camera onCapture={(img) => handlePhotoCapture(img, sec.label)} />
-                              <Button variant="secondary" size="small" onClick={() => setActivePhotoSection(null)}>Cancel</Button>
-                            </div>
-                          ) : (
-                            <div
-                              onClick={() => setActivePhotoSection(sec.label)}
-                              style={{
-                                minHeight: "100px",
-                                border: hasError ? "2px dashed var(--danger)" : "2px dashed var(--border-color)",
-                                borderRadius: "6px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "6px",
-                                cursor: "pointer",
-                                padding: "12px",
-                                textAlign: "center"
-                              }}
-                            >
-                              <CameraIcon size={22} style={{ color: hasError ? "var(--danger)" : "var(--primary)" }} />
-                              <span style={{ fontSize: "12px", fontWeight: "600", color: hasError ? "var(--danger)" : "var(--primary)" }}>
-                                Capture {sec.label}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {hasError && <p style={{ color: "var(--danger)", fontSize: "11px", marginTop: "6px" }}>{hasError}</p>}
-
-                    {matched && (
-                      <div style={{ marginTop: "10px" }}>
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          onClick={() => handlePhotoDelete(matched.id)}
-                          style={{ width: "100%", color: "var(--danger)", fontSize: "11px", padding: "4px 8px" }}
-                        >
-                          <Trash2 size={12} /> Retake
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                    surveyId={surveyId}
+                    categoryId={`DG #${assetIndex} - ${sec.label}`}
+                    label={sec.label}
+                    icon={sec.icon}
+                    coordinates={coordinates}
+                    matchedPhoto={matched}
+                    onUploadSuccess={fetchPhotos}
+                    onDeleteSuccess={fetchPhotos}
+                    validationError={validationError}
+                    readOnly={isReadOnly}
+                  />
                 );
               })}
             </div>
           </div>
 
-          <Button type="submit" disabled={submitting} style={{ width: "100%", marginTop: "24px" }}>
-            {submitting ? "Saving DG Survey..." : `Save & Complete DG #${assetIndex}`}
-          </Button>
+          {!isReadOnly && (
+            <Button type="submit" disabled={submitting} style={{ width: "100%", marginTop: "24px" }}>
+              {submitting ? "Saving DG Survey..." : `Save & Complete DG #${assetIndex}`}
+            </Button>
+          )}
         </form>
       </Card>
     </div>

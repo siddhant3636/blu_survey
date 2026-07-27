@@ -99,12 +99,27 @@ const createUser = async (data) => {
   // Create assignments for mapped siteIds
   if (uniqueSiteIds.length > 0) {
     for (const siteId of uniqueSiteIds) {
-      await prisma.surveyAssignment.create({
-        data: {
-          surveySiteId: siteId,
-          surveyorId: userObj.id,
-          status: "ASSIGNED",
-        },
+      const existingAssign = await prisma.surveyAssignment.findFirst({
+        where: { surveyorId: userObj.id, surveySiteId: siteId },
+      });
+      if (existingAssign) {
+        await prisma.surveyAssignment.update({
+          where: { id: existingAssign.id },
+          data: { isDeleted: false, deletedAt: null, status: "ASSIGNED", assignedDate: new Date() },
+        });
+      } else {
+        await prisma.surveyAssignment.create({
+          data: {
+            surveySiteId: siteId,
+            surveyorId: userObj.id,
+            status: "ASSIGNED",
+          },
+        });
+      }
+
+      await prisma.surveySite.update({
+        where: { id: siteId },
+        data: { status: "ASSIGNED" },
       });
     }
   }
@@ -177,6 +192,13 @@ const updateUser = async (id, data) => {
 
   // Update multi-site assignments if siteIds is provided
   if (uniqueSiteIds !== null) {
+    // Get previously assigned site IDs before soft-deleting
+    const previouslyAssigned = await prisma.surveyAssignment.findMany({
+      where: { surveyorId: existing.id, isDeleted: false },
+      select: { surveySiteId: true },
+    });
+    const previousSiteIds = previouslyAssigned.map((a) => a.surveySiteId);
+
     // Soft-delete obsolete assignments for this user
     await prisma.surveyAssignment.updateMany({
       where: { surveyorId: existing.id, isDeleted: false },
@@ -190,7 +212,7 @@ const updateUser = async (id, data) => {
       if (existingAssign) {
         await prisma.surveyAssignment.update({
           where: { id: existingAssign.id },
-          data: { isDeleted: false, deletedAt: null, status: "ASSIGNED" },
+          data: { isDeleted: false, deletedAt: null, status: "ASSIGNED", assignedDate: new Date() },
         });
       } else {
         await prisma.surveyAssignment.create({
@@ -206,6 +228,21 @@ const updateUser = async (id, data) => {
         where: { id: siteId },
         data: { status: "ASSIGNED" },
       });
+    }
+
+    // Check previously assigned sites that are now removed:
+    // If they have no other active assignments, set status to "PENDING"
+    const removedSiteIds = previousSiteIds.filter((id) => !uniqueSiteIds.includes(id));
+    for (const rSiteId of removedSiteIds) {
+      const activeCount = await prisma.surveyAssignment.count({
+        where: { surveySiteId: rSiteId, isDeleted: false },
+      });
+      if (activeCount === 0) {
+        await prisma.surveySite.update({
+          where: { id: rSiteId },
+          data: { status: "PENDING" },
+        });
+      }
     }
   }
 

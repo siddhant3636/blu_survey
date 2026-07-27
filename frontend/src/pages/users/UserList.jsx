@@ -31,7 +31,7 @@ const UserList = () => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="responsive-header-bar">
         <div>
           <h2 style={{ fontSize: "24px", fontWeight: "700" }}>System Users Directory</h2>
           <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Manage system surveyors, admins, phone numbers, and mapped site IDs</p>

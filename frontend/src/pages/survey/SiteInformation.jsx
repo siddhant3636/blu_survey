@@ -10,10 +10,12 @@ import Select from "../../components/common/Select";
 import GPS from "../../components/common/GPS";
 import Loader from "../../components/common/Loader";
 import { AlertTriangle } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const SiteInformation = () => {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [assignment, setAssignment] = useState(null);
   const [existingSurvey, setExistingSurvey] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,18 +55,47 @@ const SiteInformation = () => {
     remarks: "",
   });
 
-  useEffect(() => {
-    const fetchAssignmentAndSurvey = async () => {
-      try {
-        const res = await siteService.getAssignments();
-        const found = res.data.assignments.find((a) => a.id === assignmentId);
-        setAssignment(found);
+  const fetchAssignmentAndSurvey = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await siteService.getAssignments();
+      const found = res.data.assignments.find((a) => a.id === assignmentId);
+      setAssignment(found);
 
-        if (found?.surveySiteId) {
-          const sRes = await surveyService.getSurveyBySite(found.surveySiteId);
-          if (sRes.data?.survey) {
-            const s = sRes.data.survey;
-            setExistingSurvey(s);
+      if (found?.surveySiteId) {
+        const sRes = await surveyService.getSurveyBySite(found.surveySiteId);
+        if (sRes.data?.survey) {
+          const s = sRes.data.survey;
+          setExistingSurvey(s);
+          
+          const isLockedByOther = s.firstPageLocked && s.firstPageLockedByUserId !== user?.id;
+          const isSurveyLocked = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(s.status);
+          const isReadOnly = isLockedByOther || isSurveyLocked;
+
+          // Only overwrite form inputs if the page becomes read-only
+          if (isReadOnly) {
+            setForm((prev) => ({
+              ...prev,
+              surveyDate: s.surveyDate || prev.surveyDate,
+              surveyTime: s.surveyTime || prev.surveyTime,
+              buildingName: s.buildingName || "",
+              operator: s.operator || "BluSmart Fleet",
+              city: s.city || "",
+              pincode: s.pincode || "",
+              latitude: s.latitude !== null && s.latitude !== undefined ? s.latitude : prev.latitude,
+              longitude: s.longitude !== null && s.longitude !== undefined ? s.longitude : prev.longitude,
+              accessPersonName: s.accessPersonName || "",
+              accessPersonMobile: s.accessPersonMobile || "",
+              parkingArea: s.parkingArea || "Basement / Ground",
+              internetAvailability: s.internetAvailability || "4G / 5G + Wi-Fi",
+              totalChargers: s.totalChargers ?? 4,
+              totalPanels: s.totalPanels ?? 2,
+              totalTransformers: s.totalTransformers ?? 1,
+              totalDG: s.totalDG ?? 1,
+              remarks: s.remarks || "",
+            }));
+          } else if (!silent) {
+            // First time load fallback
             setForm((prev) => ({
               ...prev,
               surveyDate: s.surveyDate || prev.surveyDate,
@@ -87,21 +118,44 @@ const SiteInformation = () => {
             }));
           }
         }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchAssignmentAndSurvey();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAssignmentAndSurvey(false);
+
+    // Auto-refresh Step 1 lock state every 10 seconds silently
+    const interval = setInterval(() => {
+      fetchAssignmentAndSurvey(true);
+    }, 10 * 1000);
+
+    return () => clearInterval(interval);
   }, [assignmentId]);
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    if (type === "number" || ["totalChargers", "totalPanels", "totalTransformers", "totalDG"].includes(name)) {
+      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
+    }
+    const val = e.target.value;
     setForm((prev) => ({
       ...prev,
-      [name]: type === "number" ? (value === "" ? "" : isNaN(value) ? value : Number(value)) : value,
+      [name]: type === "number" ? (val === "" ? "" : isNaN(val) ? val : Number(val)) : val,
     }));
+  };
+
+  const handleBlur = (e) => {
+    const { name, value, type } = e.target;
+    if (type === "number" || ["totalChargers", "totalPanels", "totalTransformers", "totalDG"].includes(name)) {
+      if (value === "") {
+        setForm((prev) => ({ ...prev, [name]: 0 }));
+      }
+    }
   };
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -120,6 +174,9 @@ const SiteInformation = () => {
       const sId = res.data?.data?.survey?.id || res.data?.survey?.id || res.data?.id;
       navigate(`/survey/assets/${sId}`);
     } catch (err) {
+      if (err.response?.status === 409) {
+        fetchAssignmentAndSurvey(true);
+      }
       const apiErrors = err.response?.data?.errors;
       if (Array.isArray(apiErrors) && apiErrors.length > 0) {
         const fieldMsgs = apiErrors.map((e) => e.message || `${e.field} is invalid`).join(" | ");
@@ -317,12 +374,38 @@ const SiteInformation = () => {
   if (loading) return <Loader />;
   if (!assignment) return <p style={{ padding: "40px", textAlign: "center" }}>Assignment record not found.</p>;
 
+  const isLockedByOther = existingSurvey && existingSurvey.firstPageLocked && existingSurvey.firstPageLockedByUserId !== user?.id;
+  const isSurveyLocked = existingSurvey && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(existingSurvey.status);
+  const isReadOnly = isLockedByOther || isSurveyLocked;
+
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto" }}>
       <h2 style={{ marginBottom: "6px" }}>Step 1: Complete Site Information & Asset Counts</h2>
       <p style={{ color: "var(--text-secondary)", marginBottom: "20px", fontSize: "14px" }}>
         Enter station details and total asset counts. System will automatically generate individual asset checklists.
       </p>
+
+      {existingSurvey?.firstPageLocked && (
+        <div style={{
+          padding: "16px",
+          backgroundColor: isLockedByOther ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)",
+          border: isLockedByOther ? "1px solid var(--danger)" : "1px solid #10b981",
+          borderRadius: "8px",
+          color: isLockedByOther ? "var(--danger)" : "#10b981",
+          marginBottom: "20px",
+          fontSize: "14px",
+          fontWeight: "600",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
+        }}>
+          <span>
+            {isLockedByOther 
+              ? `🔒 First page completed by ${existingSurvey.firstPageLockedBy || "another surveyor"} on ${new Date(existingSurvey.firstPageLockedAt).toLocaleString()}. This section is locked and can only be viewed.`
+              : `✏️ You completed the first page. You can still modify the counts and details.`}
+          </span>
+        </div>
+      )}
 
       {error && (
         <div style={{
@@ -348,25 +431,28 @@ const SiteInformation = () => {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
-            <Input label="Survey Date" name="surveyDate" type="date" value={form.surveyDate} onChange={handleChange} max={todayStr} required />
-            <Input label="Survey Time" name="surveyTime" type="time" value={form.surveyTime} onChange={handleChange} required />
-            <Input label="Building / Landmark Name" name="buildingName" value={form.buildingName} onChange={handleChange} placeholder="e.g. Tower B Parking Lot" />
-            <Input label="Operator Name" name="operator" value={form.operator} onChange={handleChange} required />
-            <Input label="City" name="city" value={form.city} onChange={handleChange} required />
-            <Input label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} required />
+            <Input label="Survey Date" name="surveyDate" type="date" value={form.surveyDate} onChange={handleChange} max={todayStr} disabled={isReadOnly} required />
+            <Input label="Survey Time" name="surveyTime" type="time" value={form.surveyTime} onChange={handleChange} disabled={isReadOnly} required />
+            <Input label="Building / Landmark Name" name="buildingName" value={form.buildingName} onChange={handleChange} placeholder="e.g. Tower B Parking Lot" disabled={isReadOnly} />
+            <Input label="Operator Name" name="operator" value={form.operator} onChange={handleChange} disabled={isReadOnly} required />
+            <Input label="City" name="city" value={form.city} onChange={handleChange} disabled={isReadOnly} required />
+            <Input label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} disabled={isReadOnly} required />
             
-            <div style={{ gridColumn: "1 / -1" }}>
-              <GPS onCoordinatesFetched={(coords) => setForm((prev) => ({ ...prev, latitude: coords.latitude, longitude: coords.longitude }))} />
-            </div>
+            {!isReadOnly && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <GPS onCoordinatesFetched={(coords) => setForm((prev) => ({ ...prev, latitude: coords.latitude, longitude: coords.longitude }))} />
+              </div>
+            )}
 
-            <Input label="Site Access Person Name" name="accessPersonName" value={form.accessPersonName} onChange={handleChange} placeholder="e.g. Security Supervisor" />
-            <Input label="Access Person Mobile" name="accessPersonMobile" value={form.accessPersonMobile} onChange={handleChange} placeholder="e.g. +91 9876543210" />
+            <Input label="Site Access Person Name" name="accessPersonName" value={form.accessPersonName} onChange={handleChange} placeholder="e.g. Security Supervisor" disabled={isReadOnly} />
+            <Input label="Access Person Mobile" name="accessPersonMobile" value={form.accessPersonMobile} onChange={handleChange} placeholder="e.g. +91 9876543210" disabled={isReadOnly} />
 
             <Select
               label="Parking Area Type"
               name="parkingArea"
               value={form.parkingArea}
               onChange={handleChange}
+              disabled={isReadOnly}
               options={[
                 { value: "Basement / Ground", label: "Basement / Ground Covered" },
                 { value: "Open Surface", label: "Open Surface Parking" },
@@ -379,6 +465,7 @@ const SiteInformation = () => {
               name="internetAvailability"
               value={form.internetAvailability}
               onChange={handleChange}
+              disabled={isReadOnly}
               options={[
                 { value: "Only 4G / 5G", label: "Only 4G / 5G" },
                 { value: "Only Wi-Fi", label: "Only Wi-Fi" },
@@ -389,21 +476,27 @@ const SiteInformation = () => {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginTop: "16px", borderTop: "1px solid var(--border-color)", paddingTop: "16px" }}>
-            <Input label="Total Chargers Count" name="totalChargers" type="number" min="0" max="200" value={form.totalChargers} onChange={handleChange} required />
-            <Input label="Total Panels Count" name="totalPanels" type="number" min="0" max="100" value={form.totalPanels} onChange={handleChange} required />
-            <Input label="Total Transformers Count" name="totalTransformers" type="number" min="0" max="50" value={form.totalTransformers} onChange={handleChange} required />
-            <Input label="Total DG Sets Count" name="totalDG" type="number" min="0" max="50" value={form.totalDG} onChange={handleChange} required />
+            <Input label="Total Chargers Count" name="totalChargers" type="number" min="0" max="200" value={form.totalChargers} onChange={handleChange} onBlur={handleBlur} disabled={isReadOnly} required />
+            <Input label="Total Panels Count" name="totalPanels" type="number" min="0" max="100" value={form.totalPanels} onChange={handleChange} onBlur={handleBlur} disabled={isReadOnly} required />
+            <Input label="Total Transformers Count" name="totalTransformers" type="number" min="0" max="50" value={form.totalTransformers} onChange={handleChange} onBlur={handleBlur} disabled={isReadOnly} required />
+            <Input label="Total DG Sets Count" name="totalDG" type="number" min="0" max="50" value={form.totalDG} onChange={handleChange} onBlur={handleBlur} disabled={isReadOnly} required />
           </div>
 
-          <Input label="Site Remarks & Access Instructions" name="remarks" value={form.remarks} onChange={handleChange} placeholder="Landmarks, safety instructions, gate permissions..." />
+          <Input label="Site Remarks & Access Instructions" name="remarks" value={form.remarks} onChange={handleChange} placeholder="Landmarks, safety instructions, gate permissions..." disabled={isReadOnly} />
 
           <div className="responsive-actions-bar">
             <Button type="button" variant="secondary" onClick={() => navigate("/survey/assigned")}>
               ← Back to Assigned Sites
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving & Syncing..." : "Save & Next →"}
-            </Button>
+            {isReadOnly ? (
+              <Button type="button" onClick={() => navigate(`/survey/assets/${existingSurvey.id}`)}>
+                Next →
+              </Button>
+            ) : (
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Saving & Syncing..." : "Save & Next →"}
+              </Button>
+            )}
           </div>
         </form>
       </Card>

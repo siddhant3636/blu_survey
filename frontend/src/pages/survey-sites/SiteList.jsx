@@ -29,7 +29,7 @@ const SiteList = () => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="responsive-header-bar">
         <div>
           <h2 style={{ fontSize: "24px", fontWeight: "700" }}>Survey Sites Directory</h2>
           <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Assign and track survey statuses for candidate EV locations</p>
@@ -40,7 +40,7 @@ const SiteList = () => {
         </div>
       </div>
 
-      <Table headers={["S.No.", "SITE ID", "NAME", "CONCESSIONAIRE", "LAND OWNING AGENCY", "ADDRESS", "STATUS", "ACTIONS"]}>
+      <Table headers={["S.No.", "SITE ID", "NAME", "CONCESSIONAIRE", "LAND OWNING AGENCY", "ADDRESS", "ASSIGNED SURVEYOR(S)", "STATUS", "ACTIONS"]}>
         {sites.map((s, index) => {
           const displaySiteId = s.siteId || `BSC${(index + 1).toString().padStart(3, "0")}`;
           return (
@@ -63,10 +63,36 @@ const SiteList = () => {
               <td>{s.concessionaire || "N/A"}</td>
               <td>{s.landOwningAgency || "N/A"}</td>
               <td>{s.address}</td>
+              <td>
+                {s.assignments && s.assignments.length > 0 ? (
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {s.assignments.map((a) => (
+                      <span
+                        key={a.id}
+                        style={{
+                          backgroundColor: "rgba(16, 185, 129, 0.15)",
+                          color: "#34d399",
+                          border: "1px solid rgba(16, 185, 129, 0.3)",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {a.surveyor?.name || "Unknown"}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: "var(--text-secondary)", fontStyle: "italic", fontSize: "12px" }}>
+                    Not Assigned
+                  </span>
+                )}
+              </td>
               <td><StatusBadge status={s.status} /></td>
               <td>
-                <Link to={`/survey-sites/${s.id}`} style={{ marginRight: "12px", color: "var(--secondary)" }}>Details</Link>
-                <Link to={`/survey-sites/edit/${s.id}`} style={{ color: "var(--text-secondary)" }}>Edit</Link>
+                <Link to={`/survey-sites/edit/${s.id}`} style={{ color: "var(--secondary)", fontWeight: "600" }}>Edit</Link>
               </td>
             </tr>
           );

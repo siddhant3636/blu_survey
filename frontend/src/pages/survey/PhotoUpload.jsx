@@ -25,8 +25,20 @@ const PhotoUpload = () => {
   const [activeSection, setActiveSection] = useState(null);
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
 
+  let envApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+  if (
+    typeof window !== "undefined" &&
+    window.location &&
+    !window.location.hostname.includes("localhost") &&
+    !window.location.hostname.includes("127.0.0.1") &&
+    envApiUrl.includes("localhost")
+  ) {
+    envApiUrl = window.location.origin + "/api/v1";
+  }
+  const apiBaseHost = envApiUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
+
   const { uploadFile, progress, loading: uploading } = useUpload(
-    `${import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"}/photos`
+    `${envApiUrl}/photos`
   );
 
   const fetchPhotos = async () => {
@@ -131,7 +143,7 @@ const PhotoUpload = () => {
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
                     <div style={{ width: "100%", height: "160px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border-color)" }}>
                       <img
-                        src={`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace("/api/v1", "") : "http://localhost:5000"}${matchedPhoto.url}`}
+                        src={`${apiBaseHost}${matchedPhoto.url}`}
                         alt={sec.label}
                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       />

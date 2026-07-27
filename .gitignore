@@ -1,0 +1,9 @@
+#Backend
+/backend/.env
+/backend/node_modules/
+/backend/logs/*
+
+#Frontend
+/frontend/.env
+/frontend/node_modules/
+/frontend/vite.config.js

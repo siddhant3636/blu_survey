@@ -74,11 +74,41 @@ const createAssignment = async (data, user) => {
       where: {
         surveySiteId,
         surveyorId: sId,
-        isDeleted: false,
       },
     });
 
-    if (!existing) {
+    if (existing) {
+      if (existing.isDeleted) {
+        const updated = await prisma.surveyAssignment.update({
+          where: { id: existing.id },
+          data: {
+            isDeleted: false,
+            deletedAt: null,
+            status: "ASSIGNED",
+            createdBy: user?.id || null,
+            assignedDate: new Date(),
+          },
+          include: {
+            surveyor: { select: { id: true, name: true, email: true } },
+            surveySite: true,
+          },
+        });
+        createdAssignments.push(updated);
+      } else {
+        // If it's already active, update its assignedDate to now to treat it as recent assignment activity
+        const updated = await prisma.surveyAssignment.update({
+          where: { id: existing.id },
+          data: {
+            assignedDate: new Date(),
+          },
+          include: {
+            surveyor: { select: { id: true, name: true, email: true } },
+            surveySite: true,
+          },
+        });
+        createdAssignments.push(updated);
+      }
+    } else {
       const created = await prisma.surveyAssignment.create({
         data: {
           surveySiteId,

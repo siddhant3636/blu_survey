@@ -6,15 +6,11 @@ const photoService = {
   },
 
   uploadPhoto: async (formData) => {
-    return api.post("/photos", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return api.post("/photos", formData);
   },
 
   uploadMultiplePhotos: async (formData) => {
-    return api.post("/photos/multiple", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return api.post("/photos/multiple", formData);
   },
 
   deletePhoto: async (photoId) => {

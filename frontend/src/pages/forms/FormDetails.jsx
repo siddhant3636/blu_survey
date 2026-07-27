@@ -214,15 +214,28 @@ const FormDetails = () => {
     try {
       const parsed = typeof rawJson === "string" ? JSON.parse(rawJson) : rawJson;
       if (parsed && typeof parsed === "object" && parsed.count > 0 && Array.isArray(parsed.types)) {
-        const validTypes = parsed.types.filter(Boolean);
+        const validTypes = parsed.types.filter((t) => {
+          if (t && typeof t === "object") return t.rating || t.brandId;
+          return Boolean(t);
+        });
         if (validTypes.length > 0) {
           return (
             <div style={{ gridColumn: "1 / -1", marginTop: "6px", padding: "8px 12px", backgroundColor: "rgba(255, 255, 255, 0.02)", borderRadius: "6px", border: "1px solid var(--border-color)" }}>
               <strong style={{ display: "block", marginBottom: "4px", color: "var(--text-secondary)" }}>{label} Breakers ({parsed.count})</strong>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "6px" }}>
-                {validTypes.map((type, idx) => (
-                  <div key={idx}><strong>#{idx + 1}:</strong> {type || "N/A"}</div>
-                ))}
+                {validTypes.map((type, idx) => {
+                  let ratingText = "N/A";
+                  let brandStr = "";
+                  if (type && typeof type === "object") {
+                    ratingText = type.rating || "N/A";
+                    brandStr = type.brandName ? ` (${type.brandName})` : "";
+                  } else {
+                    ratingText = String(type || "N/A");
+                  }
+                  return (
+                    <div key={idx}><strong>#{idx + 1}:</strong> {ratingText}{brandStr}</div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -299,8 +312,15 @@ const FormDetails = () => {
             ) : (
               chargers.map((c) => (
                 <div key={c.id} style={{ borderRadius: "6px", border: "1px solid var(--border-color)", padding: "12px", fontSize: "12px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
-                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px" }}>
-                    <strong>Charger #{c.assetIndex}</strong>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <strong>Charger #{c.assetIndex}</strong>
+                      {c.lockedByUser && (
+                        <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                          👤 Filled by: {c.lockedByUser.name}
+                        </span>
+                      )}
+                    </div>
                     {isAuditor && (
                       <Button size="small" variant="secondary" onClick={() => navigate(`/survey/chargers/${survey.id}?assetId=${c.id}`)} style={{ fontSize: "11px", padding: "2px 8px" }}>
                         <Edit3 size={11} /> Edit Charger #{c.assetIndex}
@@ -315,7 +335,7 @@ const FormDetails = () => {
                   <div><span style={{ color: "var(--text-secondary)" }}>Serial Number:</span> <strong>{c.serialNumber || "N/A"}</strong></div>
                   <div><span style={{ color: "var(--text-secondary)" }}>Capacity:</span> <strong>{c.powerRating || "N/A"}</strong></div>
                   <div><span style={{ color: "var(--text-secondary)" }}>Voltage:</span> <strong>{c.voltage || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Type & Speed:</span> <strong>{c.chargerType ? `${c.chargerType} (${c.chargerCategory || "N/A"})` : "N/A"}</strong></div>
+                  <div><span style={{ color: "var(--text-secondary)" }}>Type & Speed:</span> <strong>{c.chargerType ? (c.chargerType === c.chargerCategory ? c.chargerType : `${c.chargerType} (${c.chargerCategory || "N/A"})`) : "N/A"}</strong></div>
                   <div><span style={{ color: "var(--text-secondary)" }}>Current Status:</span> <strong>{c.currentStatus || "N/A"}</strong></div>
                   <div><span style={{ color: "var(--text-secondary)" }}>Display Working:</span> <strong>{c.displayWorking || "N/A"}</strong></div>
                   <div><span style={{ color: "var(--text-secondary)" }}>Cable Condition:</span> <strong>{c.cableCondition || "N/A"}</strong></div>
@@ -352,8 +372,15 @@ const FormDetails = () => {
             ) : (
               panels.map((p) => (
                 <div key={p.id} style={{ borderRadius: "6px", border: "1px solid var(--border-color)", padding: "12px", fontSize: "12px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
-                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px" }}>
-                    <strong>Panel #{p.assetIndex} - {p.name}</strong>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <strong>Panel #{p.assetIndex} - {p.name}</strong>
+                      {p.lockedByUser && (
+                        <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                          👤 Filled by: {p.lockedByUser.name}
+                        </span>
+                      )}
+                    </div>
                     {isAuditor && (
                       <Button size="small" variant="secondary" onClick={() => navigate(`/survey/panels/${survey.id}?assetId=${p.id}`)} style={{ fontSize: "11px", padding: "2px 8px" }}>
                         <Edit3 size={11} /> Edit Panel #{p.assetIndex}
@@ -362,7 +389,53 @@ const FormDetails = () => {
                   </div>
                   <div><span style={{ color: "var(--text-secondary)" }}>Name / Tag:</span> <strong>{p.name || "N/A"}</strong></div>
                   <div><span style={{ color: "var(--text-secondary)" }}>Capacity:</span> <strong>{p.capacity || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Breaker Make / Rating:</span> <strong>{p.breakerRating || "N/A"}</strong></div>
+                        {p.breakerRating && p.breakerRating.startsWith("{") ? (
+                          <div style={{ gridColumn: "1 / -1", backgroundColor: "rgba(255,255,255,0.01)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                            <span style={{ color: "var(--text-secondary)", fontWeight: "700" }}>Breaker Panels Checklist:</span>
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(p.breakerRating);
+                                const sectionLabels = {
+                                  mainDistribution: "Main Distribution Charger Panel",
+                                  fastSlow: "Fast + Slow Charger Panel",
+                                  fast: "Fast Charger Panel",
+                                  slow: "Slow Charger Panel"
+                                };
+                                return Object.keys(sectionLabels).map((secKey) => {
+                                  const list = parsed[secKey] || [];
+                                  if (list.length === 0) return null;
+                                  return (
+                                    <div key={secKey} style={{ marginTop: "10px" }}>
+                                      <span style={{ color: "#6366f1", fontWeight: "600" }}>⚡ {sectionLabels[secKey]} ({list.length})</span>
+                                      <div style={{ paddingLeft: "12px", marginTop: "6px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                        {list.map((panel, pIdx) => (
+                                          <div key={pIdx} style={{ backgroundColor: "rgba(255,255,255,0.01)", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)" }}>
+                                            <strong>Panel #{pIdx + 1}: {panel.name || "N/A"}</strong>
+                                            <div style={{ paddingLeft: "10px", marginTop: "4px" }}>
+                                              {panel.mccb4p && panel.mccb4p.length > 0 ? (
+                                                panel.mccb4p.map((mccb, mIdx) => (
+                                                  <div key={mIdx} style={{ color: "var(--text-secondary)" }}>
+                                                    • MCCB 4P #{mIdx + 1} - Rating: <strong>{mccb.rating || "N/A"}</strong> | Brand: <strong>{mccb.brand || "N/A"}</strong>
+                                                  </div>
+                                                ))
+                                              ) : (
+                                                <div style={{ color: "var(--text-secondary)" }}>No MCCB 4P breakers.</div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              } catch (e) {
+                                return <strong>Invalid panel JSON structure</strong>;
+                              }
+                            })()}
+                          </div>
+                        ) : (
+                          <div><span style={{ color: "var(--text-secondary)" }}>Breaker Make / Rating:</span> <strong>{p.breakerRating || "N/A"}</strong></div>
+                        )}
                   <div><span style={{ color: "var(--text-secondary)" }}>Cable Size:</span> <strong>{p.cableSize || "N/A"}</strong></div>
                   <div><span style={{ color: "var(--text-secondary)" }}>GPS:</span> <strong>{p.latitude ? `${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}` : "N/A"}</strong></div>
                   {renderAssetPhotos(getAssetPhotos("Panel", p.assetIndex))}
@@ -390,8 +463,15 @@ const FormDetails = () => {
             ) : (
               transformers.map((t) => (
                 <div key={t.id} style={{ borderRadius: "6px", border: "1px solid var(--border-color)", padding: "12px", fontSize: "12px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
-                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px" }}>
-                    <strong>Transformer #{t.assetIndex}</strong>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <strong>Transformer #{t.assetIndex}</strong>
+                      {t.lockedByUser && (
+                        <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                          👤 Filled by: {t.lockedByUser.name}
+                        </span>
+                      )}
+                    </div>
                     {isAuditor && (
                       <Button size="small" variant="secondary" onClick={() => navigate(`/survey/transformers/${survey.id}?assetId=${t.id}`)} style={{ fontSize: "11px", padding: "2px 8px" }}>
                         <Edit3 size={11} /> Edit Transformer #{t.assetIndex}
@@ -429,8 +509,15 @@ const FormDetails = () => {
             ) : (
               dgs.map((d) => (
                 <div key={d.id} style={{ borderRadius: "6px", border: "1px solid var(--border-color)", padding: "12px", fontSize: "12px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
-                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px" }}>
-                    <strong>DG Set #{d.assetIndex}</strong>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <strong>DG Set #{d.assetIndex}</strong>
+                      {d.lockedByUser && (
+                        <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                          👤 Filled by: {d.lockedByUser.name}
+                        </span>
+                      )}
+                    </div>
                     {isAuditor && (
                       <Button size="small" variant="secondary" onClick={() => navigate(`/survey/dgs/${survey.id}?assetId=${d.id}`)} style={{ fontSize: "11px", padding: "2px 8px" }}>
                         <Edit3 size={11} /> Edit DG #{d.assetIndex}

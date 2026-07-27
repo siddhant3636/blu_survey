@@ -41,6 +41,10 @@ const validationError = (res, message, errors = []) => {
   });
 };
 
+const conflict = (res, message = "Conflict") => {
+  return error(res, message, 409);
+};
+
 module.exports = {
   success,
   error,
@@ -48,5 +52,6 @@ module.exports = {
   unauthorized,
   forbidden,
   notFound,
+  conflict,
   validationError,
 };

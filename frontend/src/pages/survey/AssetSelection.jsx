@@ -28,20 +28,28 @@ const AssetSelection = () => {
     setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const fetchSurveyDetails = async () => {
+  const fetchSurveyDetails = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await surveyService.getSurvey(surveyId);
       const sData = res.data?.data?.survey || res.data?.survey;
       setSurvey(sData);
     } catch (err) {
-      setError("Failed to load survey details");
+      if (!silent) setError("Failed to load survey details");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSurveyDetails();
+    fetchSurveyDetails(false);
+
+    // Auto-refresh lock states every 10 seconds silently
+    const interval = setInterval(() => {
+      fetchSurveyDetails(true);
+    }, 10 * 1000);
+
+    return () => clearInterval(interval);
   }, [surveyId]);
 
   const handleOpenAsset = (assetType, asset) => {
@@ -80,6 +88,46 @@ const AssetSelection = () => {
         </div>
       </Card>
     );
+  };
+
+  const getAssetState = (asset) => {
+    const now = new Date();
+    const isExpired = asset.lockedAt && (now.getTime() - new Date(asset.lockedAt).getTime() > 5 * 60 * 1000);
+    const hasActiveLock = asset.lockedByUserId && !isExpired;
+
+    if (asset.status === "COMPLETED") {
+      return {
+        label: "COMPLETED",
+        text: `✓ Completed by ${asset.lockedByUser?.name || "another surveyor"}`,
+        color: "#10b981",
+        isLocked: false,
+      };
+    }
+
+    if (hasActiveLock) {
+      if (asset.lockedByUserId === user?.id) {
+        return {
+          label: "IN_PROGRESS",
+          text: "✏️ You are editing this item",
+          color: "var(--primary)",
+          isLocked: false,
+        };
+      } else {
+        return {
+          label: "LOCKED",
+          text: `🔒 Locked — Being filled by ${asset.lockedByUser?.name || "another surveyor"}`,
+          color: "#ef4444",
+          isLocked: true,
+        };
+      }
+    }
+
+    return {
+      label: "AVAILABLE",
+      text: "🟢 Available",
+      color: "#38bdf8",
+      isLocked: false,
+    };
   };
 
   const renderAssetGroup = (title, icon, assetType, items) => {
@@ -124,6 +172,7 @@ const AssetSelection = () => {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {items.map((asset) => {
+                  const stateInfo = getAssetState(asset);
                   return (
                     <div
                       key={asset.id}
@@ -135,26 +184,36 @@ const AssetSelection = () => {
                         borderRadius: "var(--border-radius)",
                         border: "1px solid var(--border-color)",
                         backgroundColor: "var(--card-bg)",
+                        flexWrap: "wrap",
+                        gap: "10px"
                       }}
                     >
                       <div>
                         <h4 style={{ fontSize: "14px", fontWeight: "600" }}>
                           {assetType.toUpperCase()} #{asset.assetIndex} {asset.name ? `- ${asset.name}` : ""}
                         </h4>
+                        <p style={{ fontSize: "12px", color: stateInfo.color, marginTop: "4px", fontWeight: "500" }}>
+                          {stateInfo.text}
+                        </p>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <StatusBadge status={asset.status} />
-                        <Button
-                          size="small"
-                          variant={asset.status === "COMPLETED" ? "secondary" : "primary"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenAsset(assetType, asset);
-                          }}
-                        >
-                          {asset.status === "COMPLETED" ? "View / Edit" : "Open Form"}
-                        </Button>
+                        {stateInfo.isLocked ? (
+                          <span style={{ fontSize: "12px", color: "var(--danger)", fontWeight: "600", padding: "4px 8px", backgroundColor: "rgba(239, 68, 68, 0.08)", borderRadius: "4px" }}>
+                            🔒 Locked
+                          </span>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant={asset.status === "COMPLETED" ? "secondary" : "primary"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenAsset(assetType, asset);
+                            }}
+                          >
+                            {asset.status === "COMPLETED" ? "View Details" : "Open Form"}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
@@ -213,7 +272,18 @@ const AssetSelection = () => {
       {renderAssetGroup("Diesel Generators (DG)", "⚙️", "dg", dgs)}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px" }}>
-        <Button variant="secondary" onClick={() => navigate(-1)}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            const assignments = survey?.surveySite?.assignments || [];
+            const assignment = assignments.find((a) => a.surveyorId === user?.id) || assignments[0];
+            if (assignment?.id) {
+              navigate(`/survey/site-info/${assignment.id}`);
+            } else {
+              navigate(-1);
+            }
+          }}
+        >
           ← Back
         </Button>
         <Button

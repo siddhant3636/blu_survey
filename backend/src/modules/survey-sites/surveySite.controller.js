@@ -32,27 +32,21 @@ const updateSite = async (req, res, next) => {
   try {
     let payload = {};
     if (req.user.role === "ADMIN" || req.user.role === "SUB_ADMIN") {
-      const { siteId, name, concessionaire, landOwningAgency, address, latitude, longitude, status } = req.body;
+      const { name, concessionaire, landOwningAgency, address, status, surveyorIds } = req.body;
 
       payload = {
-        ...(siteId ? { siteId: siteId.trim().toUpperCase() } : {}),
         ...(name !== undefined ? { name } : {}),
         ...(concessionaire !== undefined ? { concessionaire } : {}),
         ...(landOwningAgency !== undefined ? { landOwningAgency } : {}),
         ...(address !== undefined ? { address } : {}),
-        ...(latitude !== undefined && latitude !== "" && latitude !== null && !isNaN(Number(latitude))
-          ? { latitude: Number(latitude) }
-          : latitude === null || latitude === "" ? { latitude: null } : {}),
-        ...(longitude !== undefined && longitude !== "" && longitude !== null && !isNaN(Number(longitude))
-          ? { longitude: Number(longitude) }
-          : longitude === null || longitude === "" ? { longitude: null } : {}),
         ...(status !== undefined ? { status } : {}),
+        ...(surveyorIds !== undefined ? { surveyorIds } : {}),
       };
     } else {
       return apiResponse.forbidden(res, "Role is not authorized to edit survey site.");
     }
 
-    const site = await surveySiteService.updateSite(req.params.id, payload);
+    const site = await surveySiteService.updateSite(req.params.id, payload, req.user);
     return apiResponse.success(res, "Survey site updated successfully", { site });
   } catch (error) {
     return apiResponse.badRequest(res, error.message);

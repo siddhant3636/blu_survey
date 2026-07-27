@@ -10,8 +10,9 @@ import Button from "../../components/common/Button";
 import Camera from "../../components/common/Camera";
 import GPS from "../../components/common/GPS";
 import Loader from "../../components/common/Loader";
-import { useUpload } from "../../hooks/useUpload";
-import { Camera as CameraIcon, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
+import SinglePhotoUploader from "../../components/common/SinglePhotoUploader";
+import { Camera as CameraIcon, Trash2, CheckCircle2, AlertTriangle, Upload } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const CHARGER_PHOTO_SECTIONS = [
   { id: "Front View", label: "Front View", icon: "📷", desc: "Front view of Charger cabinet & display screen" },
@@ -26,18 +27,39 @@ const parseBreakerData = (raw) => {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && Array.isArray(parsed.types)) {
       return {
         count: Number(parsed.count ?? parsed.types.length ?? 0),
-        types: parsed.types.map((t) => String(t || "")),
+        types: parsed.types.map((t) => {
+          if (t && typeof t === "object") {
+            return {
+              rating: String(t.rating || ""),
+              brandId: String(t.brandId || ""),
+              brandName: String(t.brandName || ""),
+            };
+          }
+          return { rating: String(t || ""), brandId: "", brandName: "" };
+        }),
       };
     }
     if (Array.isArray(parsed)) {
-      return { count: parsed.length, types: parsed.map((t) => String(t || "")) };
+      return {
+        count: parsed.length,
+        types: parsed.map((t) => {
+          if (t && typeof t === "object") {
+            return {
+              rating: String(t.rating || ""),
+              brandId: String(t.brandId || ""),
+              brandName: String(t.brandName || ""),
+            };
+          }
+          return { rating: String(t || ""), brandId: "", brandName: "" };
+        }),
+      };
     }
     if (typeof parsed === "string" && parsed.trim() !== "") {
-      return { count: 1, types: [parsed.trim()] };
+      return { count: 1, types: [{ rating: parsed.trim(), brandId: "", brandName: "" }] };
     }
   } catch (e) {
     if (typeof raw === "string" && raw.trim() !== "") {
-      return { count: 1, types: [raw.trim()] };
+      return { count: 1, types: [{ rating: raw.trim(), brandId: "", brandName: "" }] };
     }
   }
   return { count: 0, types: [] };
@@ -48,6 +70,7 @@ const ChargerSurvey = () => {
   const [searchParams] = useSearchParams();
   const assetId = searchParams.get("assetId");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [manufacturers, setManufacturers] = useState([]);
   const [models, setModels] = useState([]);
@@ -63,6 +86,9 @@ const ChargerSurvey = () => {
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
   const [assetIndex, setAssetIndex] = useState(1);
+
+  const [isLockedByOther, setIsLockedByOther] = useState(false);
+  const [lockOwnerName, setLockOwnerName] = useState("");
 
   // Breaker state (Count + Ratings Array)
   const [mccb4pCount, setMccb4pCount] = useState(0);
@@ -86,12 +112,10 @@ const ChargerSurvey = () => {
     manufacturerId: "",
     modelId: "",
     connectorId: "",
-    mccbMakerId: "",
-    mcbMakerId: "",
     serialNumber: "",
     powerRating: "60kW DC",
     voltage: "415V AC 3-Phase / 750V DC",
-    chargerType: "DC Fast Charger",
+    chargerType: "Fast",
     chargerCategory: "Fast",
     currentStatus: "Operational",
     displayWorking: "Yes",
@@ -104,12 +128,11 @@ const ChargerSurvey = () => {
 
   // Photo & GPS state
   const [chargerPhotos, setChargerPhotos] = useState([]);
+  const [surveyStatus, setSurveyStatus] = useState("DRAFT");
   const [activePhotoSection, setActivePhotoSection] = useState(null);
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
 
-  const { uploadFile, progress, loading: uploading } = useUpload(
-    `${import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"}/photos`
-  );
+
 
   const fetchPhotos = async () => {
     try {
@@ -119,6 +142,48 @@ const ChargerSurvey = () => {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    const lockAsset = async () => {
+      if (!assetId) return;
+      try {
+        await surveyService.lockAsset("charger", assetId);
+        setIsLockedByOther(false);
+      } catch (err) {
+        if (err.response?.status === 409) {
+          setIsLockedByOther(true);
+          setLockOwnerName(err.response?.data?.message || "another surveyor");
+        } else {
+          console.error("Lock error:", err);
+        }
+      }
+    };
+    lockAsset();
+  }, [assetId]);
+
+  useEffect(() => {
+    const isReadOnlyLocal = isLockedByOther || ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+    if (isReadOnlyLocal || !assetId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        await surveyService.lockAsset("charger", assetId);
+      } catch (err) {
+        console.error("Failed to renew lock:", err);
+      }
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [assetId, isLockedByOther, surveyStatus]);
+
+  useEffect(() => {
+    return () => {
+      const isReadOnlyLocal = isLockedByOther || ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+      if (!isReadOnlyLocal && assetId) {
+        surveyService.unlockAsset("charger", assetId).catch(console.error);
+      }
+    };
+  }, [assetId, isLockedByOther, surveyStatus]);
 
   useEffect(() => {
     if (reductionModal.show) {
@@ -150,23 +215,20 @@ const ChargerSurvey = () => {
           .map((e) => ({ value: e.name, label: e.name }));
         setCapacityOptions(caps);
 
-        setMccb4pOptions(
-          allEquipments
-            .filter((e) => e.description === "MCCB Rating" || e.description === "MCCB 4P Rating")
-            .map((e) => ({ value: e.name, label: e.name }))
-        );
+        const mccbOptionsList = allEquipments
+          .filter((e) => e.description === "MCCB Rating" || e.description === "MCCB 4P Rating")
+          .map((e) => ({ value: e.name, label: e.name }));
+        setMccb4pOptions([{ value: "N/A", label: "N/A" }, ...mccbOptionsList]);
 
-        setMcb2pOptions(
-          allEquipments
-            .filter((e) => e.description === "MCB 2P Rating")
-            .map((e) => ({ value: e.name, label: e.name }))
-        );
+        const mcb2pOptionsList = allEquipments
+          .filter((e) => e.description === "MCB 2P Rating")
+          .map((e) => ({ value: e.name, label: e.name }));
+        setMcb2pOptions([{ value: "N/A", label: "N/A" }, ...mcb2pOptionsList]);
 
-        setMcb4pOptions(
-          allEquipments
-            .filter((e) => e.description === "MCB 4P Rating")
-            .map((e) => ({ value: e.name, label: e.name }))
-        );
+        const mcb4pOptionsList = allEquipments
+          .filter((e) => e.description === "MCB 4P Rating")
+          .map((e) => ({ value: e.name, label: e.name }));
+        setMcb4pOptions([{ value: "N/A", label: "N/A" }, ...mcb4pOptionsList]);
 
         let fetchedMccbMakers = allEquipments
           .filter((e) => e.description === "MCCB MAKE")
@@ -177,6 +239,9 @@ const ChargerSurvey = () => {
           .map((e) => ({ value: e.id, label: e.name }));
 
         const sData = surveyRes.data?.data?.survey || surveyRes.data?.survey;
+        if (sData?.status) {
+          setSurveyStatus(sData.status);
+        }
         const targetAsset = (sData?.chargers || []).find((c) => c.id === assetId);
         if (targetAsset) {
           setAssetIndex(targetAsset.assetIndex);
@@ -205,13 +270,15 @@ const ChargerSurvey = () => {
             manufacturerId: targetAsset.manufacturerId || "",
             modelId: targetAsset.modelId || "",
             connectorId: targetAsset.connectorId || "",
-            mccbMakerId: targetAsset.mccbMakerId || "",
-            mcbMakerId: targetAsset.mcbMakerId || "",
             serialNumber: targetAsset.serialNumber || "",
             powerRating: targetAsset.powerRating || "60kW DC",
             voltage: targetAsset.voltage || "415V AC 3-Phase / 750V DC",
-            chargerType: targetAsset.chargerType || "DC Fast Charger",
-            chargerCategory: targetAsset.chargerCategory || "Fast",
+            chargerType: targetAsset.chargerType === "DC Fast Charger" || targetAsset.chargerType === "AC Slow Charger" || targetAsset.chargerType === "AC Dual Gun Charger"
+              ? (targetAsset.chargerType.includes("Fast") ? "Fast" : "Slow")
+              : (targetAsset.chargerType || "Fast"),
+            chargerCategory: targetAsset.chargerCategory === "Fast Charger (DC)" || targetAsset.chargerCategory === "Slow Charger (AC 7.4kW / 22kW)" || targetAsset.chargerCategory === "Ultra-Fast Charger (150kW+)"
+              ? (targetAsset.chargerCategory.includes("Ultra") ? "Ultra Fast" : (targetAsset.chargerCategory.includes("Fast") ? "Fast" : "Slow"))
+              : (targetAsset.chargerCategory || "Fast"),
             currentStatus: targetAsset.currentStatus || "Operational",
             displayWorking: targetAsset.displayWorking || "Yes",
             cableCondition: targetAsset.cableCondition || "Good / Intact",
@@ -287,8 +354,29 @@ const ChargerSurvey = () => {
     setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
+  const handleChargerTypeChange = (e) => {
+    const val = e.target.value;
+    setForm((prev) => ({ ...prev, chargerType: val }));
+    setErrors((prev) => ({ ...prev, chargerType: null }));
+
+    if (val === "Fast") {
+      setMcb2pCount(0);
+      setMcb2pTypes([]);
+    } else if (val === "Slow") {
+      setMccb4pCount(0);
+      setMccb4pTypes([]);
+    }
+  };
+
   // Handler for breaker count inputs (MCCB 4P, MCB 2P, MCB 4P)
   const handleBreakerCountInputChange = (field, label, rawVal) => {
+    if (rawVal === "") {
+      if (field === "mccb4p") setMccb4pCount("");
+      else if (field === "mcb2p") setMcb2pCount("");
+      else if (field === "mcb4p") setMcb4pCount("");
+      return;
+    }
+
     const cleanVal = rawVal.replace(/[^0-9]/g, "");
     const newCount = cleanVal === "" ? 0 : Math.max(0, parseInt(cleanVal, 10));
 
@@ -296,25 +384,25 @@ const ChargerSurvey = () => {
     let currentTypes = [];
 
     if (field === "mccb4p") {
-      currentCount = mccb4pCount;
+      currentCount = mccb4pCount === "" ? 0 : mccb4pCount;
       currentTypes = mccb4pTypes;
     } else if (field === "mcb2p") {
-      currentCount = mcb2pCount;
+      currentCount = mcb2pCount === "" ? 0 : mcb2pCount;
       currentTypes = mcb2pTypes;
     } else if (field === "mcb4p") {
-      currentCount = mcb4pCount;
+      currentCount = mcb4pCount === "" ? 0 : mcb4pCount;
       currentTypes = mcb4pTypes;
     }
 
     if (newCount > currentCount) {
       const expanded = [...currentTypes];
       while (expanded.length < newCount) {
-        expanded.push("");
+        expanded.push({ rating: "", brandId: "", brandName: "" });
       }
       updateBreakerState(field, newCount, expanded);
     } else if (newCount < currentCount) {
       const toRemove = currentTypes.slice(newCount);
-      const hasNonEmpty = toRemove.some((t) => t && t.trim() !== "");
+      const hasNonEmpty = toRemove.some((t) => (t?.rating && t.rating.trim() !== "") || (t?.brandId && t.brandId.trim() !== ""));
       if (hasNonEmpty) {
         setReductionModal({
           show: true,
@@ -328,6 +416,17 @@ const ChargerSurvey = () => {
         const truncated = currentTypes.slice(0, newCount);
         updateBreakerState(field, newCount, truncated);
       }
+    }
+  };
+
+  const handleBreakerCountBlur = (field, label) => {
+    let currentCount = 0;
+    if (field === "mccb4p") currentCount = mccb4pCount;
+    else if (field === "mcb2p") currentCount = mcb2pCount;
+    else if (field === "mcb4p") currentCount = mcb4pCount;
+
+    if (currentCount === "") {
+      updateBreakerState(field, 0, []);
     }
   };
 
@@ -367,67 +466,63 @@ const ChargerSurvey = () => {
     setReductionModal({ show: false, field: "", label: "", oldVal: 0, newVal: 0, removedCount: 0 });
   };
 
-  const handleBreakerTypeChange = (field, index, value) => {
+  const handleBreakerRatingChange = (field, index, ratingValue) => {
     let currentTypes = [];
-    if (field === "mccb4p") currentTypes = [...mccb4pTypes];
-    else if (field === "mcb2p") currentTypes = [...mcb2pTypes];
-    else if (field === "mcb4p") currentTypes = [...mcb4pTypes];
-
-    currentTypes[index] = value;
-
-    if (field === "mccb4p") setMccb4pTypes(currentTypes);
-    else if (field === "mcb2p") setMcb2pTypes(currentTypes);
-    else if (field === "mcb4p") setMcb4pTypes(currentTypes);
+    if (field === "mccb4p") {
+      currentTypes = mccb4pTypes.map((item, idx) => idx === index ? { ...item, rating: ratingValue } : item);
+      setMccb4pTypes(currentTypes);
+    } else if (field === "mcb2p") {
+      currentTypes = mcb2pTypes.map((item, idx) => idx === index ? { ...item, rating: ratingValue } : item);
+      setMcb2pTypes(currentTypes);
+    } else if (field === "mcb4p") {
+      currentTypes = mcb4pTypes.map((item, idx) => idx === index ? { ...item, rating: ratingValue } : item);
+      setMcb4pTypes(currentTypes);
+    }
 
     setErrors((prev) => ({ ...prev, [`${field}_${index}`]: null }));
   };
 
-  const handlePhotoCapture = async (base64Img, targetSecLabel) => {
-    const label = targetSecLabel || activePhotoSection;
-    if (!label) return;
+  const handleBreakerBrandChange = (field, index, brandIdValue, makerOptions) => {
+    const matchedOption = makerOptions.find((o) => o.value === brandIdValue);
+    const brandNameValue = matchedOption ? matchedOption.label : "";
 
-    const categoryId = `Charger #${assetIndex} - ${label}`;
-
-    try {
-      const resBlob = await fetch(base64Img);
-      const blob = await resBlob.blob();
-      const file = new File([blob], `charger_${assetIndex}_${label.replace(/\s+/g, "_")}-${Date.now()}.jpg`, { type: "image/jpeg" });
-
-      await uploadFile(file, {
-        surveyId,
-        categoryId,
-        latitude: coordinates.latitude || "",
-        longitude: coordinates.longitude || "",
-      });
-
-      setActivePhotoSection(null);
-      setErrors((prev) => ({ ...prev, [`photo_${label}`]: null }));
-      fetchPhotos();
-    } catch (err) {
-      alert(err || "Photo upload failed");
+    let currentTypes = [];
+    if (field === "mccb4p") {
+      currentTypes = mccb4pTypes.map((item, idx) => idx === index ? { ...item, brandId: brandIdValue, brandName: brandNameValue } : item);
+      setMccb4pTypes(currentTypes);
+    } else if (field === "mcb2p") {
+      currentTypes = mcb2pTypes.map((item, idx) => idx === index ? { ...item, brandId: brandIdValue, brandName: brandNameValue } : item);
+      setMcb2pTypes(currentTypes);
+    } else if (field === "mcb4p") {
+      currentTypes = mcb4pTypes.map((item, idx) => idx === index ? { ...item, brandId: brandIdValue, brandName: brandNameValue } : item);
+      setMcb4pTypes(currentTypes);
     }
-  };
 
-  const handlePhotoDelete = async (photoId) => {
-    try {
-      await surveyService.removePhoto(photoId);
-      fetchPhotos();
-    } catch (err) {
-      console.error(err);
-    }
+    setErrors((prev) => ({ ...prev, [`${field}_brand_${index}`]: null }));
   };
 
   const findMatchedPhoto = (secLabel) => {
-    const expectedCategory = `Charger #${assetIndex} - ${secLabel}`.toLowerCase();
-    const fallbackCategory = `Charger ${secLabel}`.toLowerCase();
+    const targetLabel = secLabel.toLowerCase();
+    const expectedCategory = `charger #${assetIndex} - ${targetLabel}`;
     return chargerPhotos.find((p) => {
       const name = (p.category?.name || "").toLowerCase();
-      return name === expectedCategory || (assetIndex === 1 && (name === fallbackCategory || (name.includes("charger") && name.includes(secLabel.toLowerCase()))));
+      if (name === expectedCategory) return true;
+      if (name.includes(targetLabel)) {
+        if (name.includes(`#${assetIndex}`) || name.includes(`charger ${assetIndex}`) || name.includes(`charger_${assetIndex}`)) {
+          return true;
+        }
+        if (chargerPhotos.length <= 3) return true;
+      }
+      return false;
     });
   };
 
   const validateForm = () => {
     const newErrors = {};
+
+    if (!form.chargerType || !form.chargerType.trim()) {
+      newErrors.chargerType = "Charger Type is required.";
+    }
 
     if (!form.manufacturerId || !form.manufacturerId.trim()) {
       newErrors.manufacturerId = "Manufacturer is required.";
@@ -442,23 +537,42 @@ const ChargerSurvey = () => {
     }
 
     // Validate MCCB 4P individual dropdown selections
-    for (let i = 0; i < mccb4pCount; i++) {
-      if (!mccb4pTypes[i] || !mccb4pTypes[i].trim()) {
-        newErrors[`mccb4p_${i}`] = `Please select a type/rating for MCCB 4P #${i + 1}.`;
+    if (form.chargerType === "Fast") {
+      for (let i = 0; i < mccb4pCount; i++) {
+        const rVal = mccb4pTypes[i]?.rating;
+        if (!rVal || !rVal.trim()) {
+          newErrors[`mccb4p_${i}`] = `Please select a type/rating for MCCB 4P #${i + 1}.`;
+        } else if (rVal !== "N/A") {
+          if (!mccb4pTypes[i]?.brandId || !mccb4pTypes[i].brandId.trim()) {
+            newErrors[`mccb4p_brand_${i}`] = `Please select a brand for MCCB 4P #${i + 1}.`;
+          }
+        }
       }
     }
 
     // Validate MCB 2P individual dropdown selections
-    for (let i = 0; i < mcb2pCount; i++) {
-      if (!mcb2pTypes[i] || !mcb2pTypes[i].trim()) {
-        newErrors[`mcb2p_${i}`] = `Please select a type/rating for MCB 2P #${i + 1}.`;
+    if (form.chargerType === "Slow") {
+      for (let i = 0; i < mcb2pCount; i++) {
+        const rVal = mcb2pTypes[i]?.rating;
+        if (!rVal || !rVal.trim()) {
+          newErrors[`mcb2p_${i}`] = `Please select a type/rating for MCB 2P #${i + 1}.`;
+        } else if (rVal !== "N/A") {
+          if (!mcb2pTypes[i]?.brandId || !mcb2pTypes[i].brandId.trim()) {
+            newErrors[`mcb2p_brand_${i}`] = `Please select a brand for MCB 2P #${i + 1}.`;
+          }
+        }
       }
     }
 
     // Validate MCB 4P individual dropdown selections
     for (let i = 0; i < mcb4pCount; i++) {
-      if (!mcb4pTypes[i] || !mcb4pTypes[i].trim()) {
+      const rVal = mcb4pTypes[i]?.rating;
+      if (!rVal || !rVal.trim()) {
         newErrors[`mcb4p_${i}`] = `Please select a type/rating for MCB 4P #${i + 1}.`;
+      } else if (rVal !== "N/A") {
+        if (!mcb4pTypes[i]?.brandId || !mcb4pTypes[i].brandId.trim()) {
+          newErrors[`mcb4p_brand_${i}`] = `Please select a brand for MCB 4P #${i + 1}.`;
+        }
       }
     }
 
@@ -504,29 +618,29 @@ const ChargerSurvey = () => {
 
     setSubmitting(true);
     try {
-      const mccb4pData = { count: mccb4pCount, types: mccb4pTypes };
-      const mcb2pData = { count: mcb2pCount, types: mcb2pTypes };
+      const mccb4pData = form.chargerType === "Fast" ? { count: mccb4pCount, types: mccb4pTypes } : { count: 0, types: [] };
+      const mcb2pData = form.chargerType === "Slow" ? { count: mcb2pCount, types: mcb2pTypes } : { count: 0, types: [] };
       const mcb4pData = { count: mcb4pCount, types: mcb4pTypes };
 
       const payload = {
         manufacturerId: form.manufacturerId.trim(),
         modelId: form.modelId.trim(),
         connectorId: form.connectorId.trim(),
-        mccbMakerId: form.mccbMakerId ? form.mccbMakerId.trim() : null,
-        mcbMakerId: form.mcbMakerId ? form.mcbMakerId.trim() : null,
+        mccbMakerId: null,
+        mcbMakerId: null,
         serialNumber: form.serialNumber.trim() || null,
         powerRating: form.powerRating.trim() || null,
 
-        mccb4pCount,
-        mccb4pTypes,
+        mccb4pCount: mccb4pData.count,
+        mccb4pTypes: mccb4pData.types,
         mccb4p: JSON.stringify(mccb4pData),
 
-        mcb2pCount,
-        mcb2pTypes,
+        mcb2pCount: mcb2pData.count,
+        mcb2pTypes: mcb2pData.types,
         mcb2p: JSON.stringify(mcb2pData),
 
-        mcb4pCount,
-        mcb4pTypes,
+        mcb4pCount: mcb4pData.count,
+        mcb4pTypes: mcb4pData.types,
         mcb4p: JSON.stringify(mcb4pData),
 
         voltage: form.voltage.trim() || null,
@@ -586,6 +700,25 @@ const ChargerSurvey = () => {
     { value: "125A", label: "125A" },
   ];
 
+  const isReadOnly = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+
+  if (isLockedByOther) {
+    return (
+      <div style={{ maxWidth: "500px", margin: "80px auto", textAlign: "center" }}>
+        <Card style={{ border: "1px solid var(--danger)", padding: "24px" }}>
+          <div style={{ fontSize: "40px", marginBottom: "16px" }}>🔒</div>
+          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "var(--danger)", marginBottom: "12px" }}>Access Denied</h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "24px" }}>
+            This form is currently being filled by {lockOwnerName || "another surveyor"}. To prevent concurrent edits, you cannot view or edit this form while it is locked.
+          </p>
+          <Button variant="secondary" onClick={() => navigate(`/survey/assets/${surveyId}`)}>
+            Back to Assets Matrix
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: "700px", margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -601,10 +734,197 @@ const ChargerSurvey = () => {
 
       <Card>
         <form onSubmit={handleSubmit}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+          <fieldset disabled={isReadOnly} style={{ border: "none", padding: 0, margin: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+            {/* 1. Charger Type * */}
+            <div id="field-chargerType" style={{ gridColumn: "1 / -1" }}>
+              <Select2
+                label="Charger Type"
+                name="chargerType"
+                value={form.chargerType}
+                onChange={handleChargerTypeChange}
+                options={[
+                  { value: "Slow", label: "Slow" },
+                  { value: "Fast", label: "Fast" },
+                ]}
+                placeholder="Select Charger Type..."
+                required
+                error={errors.chargerType}
+              />
+            </div>
+
+            {/* 2. Based on Charger Type: Counts */}
+            {form.chargerType === "Slow" && (
+              <>
+                <div id="field-mcb2pCount" style={{ gridColumn: "1 / -1" }}>
+                  <Input
+                    label="Number of MCB 2P Breakers"
+                    name="mcb2pCount"
+                    type="number"
+                    min="0"
+                    value={mcb2pCount}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
+                      handleBreakerCountInputChange("mcb2p", "MCB 2P", e.target.value);
+                    }}
+                    onBlur={() => handleBreakerCountBlur("mcb2p", "MCB 2P")}
+                    placeholder="Enter count (e.g. 0, 1, 2...)"
+                  />
+                </div>
+                <div id="field-mcb4pCount" style={{ gridColumn: "1 / -1" }}>
+                  <Input
+                    label="Number of MCB 4P Breakers"
+                    name="mcb4pCount"
+                    type="number"
+                    min="0"
+                    value={mcb4pCount}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
+                      handleBreakerCountInputChange("mcb4p", "MCB 4P", e.target.value);
+                    }}
+                    onBlur={() => handleBreakerCountBlur("mcb4p", "MCB 4P")}
+                    placeholder="Enter count (e.g. 0, 1, 2...)"
+                  />
+                </div>
+              </>
+            )}
+
+            {form.chargerType === "Fast" && (
+              <>
+                <div id="field-mccb4pCount" style={{ gridColumn: "1 / -1" }}>
+                  <Input
+                    label="Number of MCCB 4P Breakers"
+                    name="mccb4pCount"
+                    type="number"
+                    min="0"
+                    value={mccb4pCount}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
+                      handleBreakerCountInputChange("mccb4p", "MCCB 4P", e.target.value);
+                    }}
+                    onBlur={() => handleBreakerCountBlur("mccb4p", "MCCB 4P")}
+                    placeholder="Enter count (e.g. 0, 1, 2...)"
+                  />
+                </div>
+                <div id="field-mcb4pCount" style={{ gridColumn: "1 / -1" }}>
+                  <Input
+                    label="Number of MCB 4P Breakers"
+                    name="mcb4pCount"
+                    type="number"
+                    min="0"
+                    value={mcb4pCount}
+                    onChange={(e) => {
+                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
+                      handleBreakerCountInputChange("mcb4p", "MCB 4P", e.target.value);
+                    }}
+                    onBlur={() => handleBreakerCountBlur("mcb4p", "MCB 4P")}
+                    placeholder="Enter count (e.g. 0, 1, 2...)"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* 3. Dynamic rating and maker selections */}
+            {/* MCCB 4P Dynamic Selections (Fast only) */}
+            {form.chargerType === "Fast" && mccb4pCount > 0 && (
+              <div style={{ gridColumn: "1 / -1", marginTop: "4px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
+                {Array.from({ length: mccb4pCount }).map((_, idx) => (
+                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div id={`field-mccb4p_${idx}`}>
+                      <Select2
+                        label={`MCCB 4P #${idx + 1} Rating`}
+                        name={`mccb4p_${idx}`}
+                        value={mccb4pTypes[idx]?.rating || ""}
+                        onChange={(e) => handleBreakerRatingChange("mccb4p", idx, e.target.value)}
+                        options={mccb4pOptions.length > 0 ? mccb4pOptions : fallbackMCCB4P}
+                        placeholder={`Select MCCB 4P #${idx + 1} Rating...`}
+                        error={errors[`mccb4p_${idx}`]}
+                      />
+                    </div>
+                    <div id={`field-mccb4p_brand_${idx}`}>
+                      <Select2
+                        label={`MCCB 4P #${idx + 1} Brand`}
+                        name={`mccb4p_brand_${idx}`}
+                        value={mccb4pTypes[idx]?.brandId || ""}
+                        onChange={(e) => handleBreakerBrandChange("mccb4p", idx, e.target.value, mccbMakerOptions)}
+                        options={mccbMakerOptions}
+                        placeholder={`Select MCCB 4P #${idx + 1} Brand...`}
+                        error={errors[`mccb4p_brand_${idx}`]}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* MCB 2P Dynamic Selections (Slow only) */}
+            {form.chargerType === "Slow" && mcb2pCount > 0 && (
+              <div style={{ gridColumn: "1 / -1", marginTop: "4px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
+                {Array.from({ length: mcb2pCount }).map((_, idx) => (
+                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div id={`field-mcb2p_${idx}`}>
+                      <Select2
+                        label={`MCB 2P #${idx + 1} Rating`}
+                        name={`mcb2p_${idx}`}
+                        value={mcb2pTypes[idx]?.rating || ""}
+                        onChange={(e) => handleBreakerRatingChange("mcb2p", idx, e.target.value)}
+                        options={mcb2pOptions.length > 0 ? mcb2pOptions : fallbackMCB2P}
+                        placeholder={`Select MCB 2P #${idx + 1} Rating...`}
+                        error={errors[`mcb2p_${idx}`]}
+                      />
+                    </div>
+                    <div id={`field-mcb2p_brand_${idx}`}>
+                      <Select2
+                        label={`MCB 2P #${idx + 1} Brand`}
+                        name={`mcb2p_brand_${idx}`}
+                        value={mcb2pTypes[idx]?.brandId || ""}
+                        onChange={(e) => handleBreakerBrandChange("mcb2p", idx, e.target.value, mcbMakerOptions)}
+                        options={mcbMakerOptions}
+                        placeholder={`Select MCB 2P #${idx + 1} Brand...`}
+                        error={errors[`mcb2p_brand_${idx}`]}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* MCB 4P Dynamic Selections (Slow or Fast) */}
+            {((form.chargerType === "Slow" || form.chargerType === "Fast")) && mcb4pCount > 0 && (
+              <div style={{ gridColumn: "1 / -1", marginTop: "4px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
+                {Array.from({ length: mcb4pCount }).map((_, idx) => (
+                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div id={`field-mcb4p_${idx}`}>
+                      <Select2
+                        label={`MCB 4P #${idx + 1} Rating`}
+                        name={`mcb4p_${idx}`}
+                        value={mcb4pTypes[idx]?.rating || ""}
+                        onChange={(e) => handleBreakerRatingChange("mcb4p", idx, e.target.value)}
+                        options={mcb4pOptions.length > 0 ? mcb4pOptions : fallbackMCB4P}
+                        placeholder={`Select MCB 4P #${idx + 1} Rating...`}
+                        error={errors[`mcb4p_${idx}`]}
+                      />
+                    </div>
+                    <div id={`field-mcb4p_brand_${idx}`}>
+                      <Select2
+                        label={`MCB 4P #${idx + 1} Brand`}
+                        name={`mcb4p_brand_${idx}`}
+                        value={mcb4pTypes[idx]?.brandId || ""}
+                        onChange={(e) => handleBreakerBrandChange("mcb4p", idx, e.target.value, mcbMakerOptions)}
+                        options={mcbMakerOptions}
+                        placeholder={`Select MCB 4P #${idx + 1} Brand...`}
+                        error={errors[`mcb4p_brand_${idx}`]}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 4. Existing charger fields */}
             <div id="field-manufacturerId">
               <Select2
-                label="Manufacturer"
+                label="Charger Manufacturer"
                 name="manufacturerId"
                 value={form.manufacturerId}
                 onChange={handleManufacturerChange}
@@ -646,7 +966,7 @@ const ChargerSurvey = () => {
             
             {capacityOptions.length > 0 ? (
               <Select2
-                label="Capacity (Power Rating)"
+                label="Capacity (A)"
                 name="powerRating"
                 value={form.powerRating}
                 onChange={handleChange}
@@ -654,149 +974,24 @@ const ChargerSurvey = () => {
                 placeholder="Search / Select Capacity..."
               />
             ) : (
-              <Input label="Capacity (Power Rating)" name="powerRating" value={form.powerRating} onChange={handleChange} placeholder="e.g. 60kW, 120kW" />
+              <Input label="Capacity (A)" name="powerRating" value={form.powerRating} onChange={handleChange} placeholder="e.g. 125 A" />
             )}
 
             <Input label="Voltage Input/Output" name="voltage" value={form.voltage} onChange={handleChange} placeholder="e.g. 415V AC / 750V DC" />
 
-            <div id="field-mccbMakerId">
-              <Select2
-                label="MCCB Maker"
-                name="mccbMakerId"
-                value={form.mccbMakerId}
-                onChange={handleChange}
-                options={mccbMakerOptions}
-                placeholder="Search / Select MCCB Maker..."
-                error={errors.mccbMakerId}
-              />
-            </div>
+            {/* Redundant standalone MCCB/MCB Maker fields removed as handled dynamically per breaker */}
 
-            <div id="field-mcbMakerId">
-              <Select2
-                label="MCB Maker"
-                name="mcbMakerId"
-                value={form.mcbMakerId}
-                onChange={handleChange}
-                options={mcbMakerOptions}
-                placeholder="Search / Select MCB Maker..."
-                error={errors.mcbMakerId}
-              />
-            </div>
-
-            {/* ⚡ MCCB 4P SECTION */}
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-color)", paddingTop: "12px", marginTop: "4px" }}>
-              <Input
-                label="Number of MCCB 4P Breakers"
-                name="mccb4pCount"
-                type="number"
-                min="0"
-                value={mccb4pCount === 0 ? "" : mccb4pCount}
-                onChange={(e) => handleBreakerCountInputChange("mccb4p", "MCCB 4P", e.target.value)}
-                placeholder="Enter count (e.g. 0, 1, 2...)"
-              />
-
-              {mccb4pCount > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px", marginTop: "12px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-                  {Array.from({ length: mccb4pCount }).map((_, idx) => (
-                    <div key={idx} id={`field-mccb4p_${idx}`}>
-                      <Select2
-                        label={`MCCB 4P #${idx + 1} Rating`}
-                        name={`mccb4p_${idx}`}
-                        value={mccb4pTypes[idx] || ""}
-                        onChange={(e) => handleBreakerTypeChange("mccb4p", idx, e.target.value)}
-                        options={mccb4pOptions.length > 0 ? mccb4pOptions : fallbackMCCB4P}
-                        placeholder={`Select MCCB 4P #${idx + 1} Rating...`}
-                        error={errors[`mccb4p_${idx}`]}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ⚡ MCB 2P SECTION */}
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-color)", paddingTop: "12px", marginTop: "4px" }}>
-              <Input
-                label="Number of MCB 2P Breakers"
-                name="mcb2pCount"
-                type="number"
-                min="0"
-                value={mcb2pCount === 0 ? "" : mcb2pCount}
-                onChange={(e) => handleBreakerCountInputChange("mcb2p", "MCB 2P", e.target.value)}
-                placeholder="Enter count (e.g. 0, 1, 2...)"
-              />
-
-              {mcb2pCount > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px", marginTop: "12px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-                  {Array.from({ length: mcb2pCount }).map((_, idx) => (
-                    <div key={idx} id={`field-mcb2p_${idx}`}>
-                      <Select2
-                        label={`MCB 2P #${idx + 1} Rating`}
-                        name={`mcb2p_${idx}`}
-                        value={mcb2pTypes[idx] || ""}
-                        onChange={(e) => handleBreakerTypeChange("mcb2p", idx, e.target.value)}
-                        options={mcb2pOptions.length > 0 ? mcb2pOptions : fallbackMCB2P}
-                        placeholder={`Select MCB 2P #${idx + 1} Rating...`}
-                        error={errors[`mcb2p_${idx}`]}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ⚡ MCB 4P SECTION */}
-            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--border-color)", paddingTop: "12px", marginTop: "4px", paddingBottom: "8px" }}>
-              <Input
-                label="Number of MCB 4P Breakers"
-                name="mcb4pCount"
-                type="number"
-                min="0"
-                value={mcb4pCount === 0 ? "" : mcb4pCount}
-                onChange={(e) => handleBreakerCountInputChange("mcb4p", "MCB 4P", e.target.value)}
-                placeholder="Enter count (e.g. 0, 1, 2...)"
-              />
-
-              {mcb4pCount > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px", marginTop: "12px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-                  {Array.from({ length: mcb4pCount }).map((_, idx) => (
-                    <div key={idx} id={`field-mcb4p_${idx}`}>
-                      <Select2
-                        label={`MCB 4P #${idx + 1} Rating`}
-                        name={`mcb4p_${idx}`}
-                        value={mcb4pTypes[idx] || ""}
-                        onChange={(e) => handleBreakerTypeChange("mcb4p", idx, e.target.value)}
-                        options={mcb4pOptions.length > 0 ? mcb4pOptions : fallbackMCB4P}
-                        placeholder={`Select MCB 4P #${idx + 1} Rating...`}
-                        error={errors[`mcb4p_${idx}`]}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Select2
-              label="AC / DC Type"
-              name="chargerType"
-              value={form.chargerType}
-              onChange={handleChange}
-              options={[
-                { value: "DC Fast Charger", label: "DC Fast Charger" },
-                { value: "AC Slow Charger", label: "AC Slow Charger" },
-                { value: "AC Dual Gun Charger", label: "AC Dual Gun Charger" },
-              ]}
-            />
             <Select2
               label="Speed Category"
               name="chargerCategory"
               value={form.chargerCategory}
               onChange={handleChange}
               options={[
-                { value: "Fast", label: "Fast Charger (DC)" },
-                { value: "Ultra-Fast", label: "Ultra-Fast Charger (150kW+)" },
-                { value: "Slow", label: "Slow Charger (AC 7.4kW / 22kW)" },
+                { value: "Slow", label: "Slow" },
+                { value: "Fast", label: "Fast" },
+                { value: "Ultra Fast", label: "Ultra Fast" },
               ]}
+              required
             />
             <Select2
               label="Operational Status"
@@ -848,12 +1043,22 @@ const ChargerSurvey = () => {
             <Input label="Remarks & Specific Defect Description" name="remarks" value={form.remarks} onChange={handleChange} placeholder="Notes on physical condition, screen error codes, cable length..." />
           </div>
 
+          </fieldset>
+
           {/* 📍 GPS Tagging Section */}
           <div id="field-gps" style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid var(--border-color)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
               <h4 style={{ fontSize: "14px", fontWeight: "700" }}>📍 GPS Location Tagging <span style={{ color: "var(--danger)" }}>*</span></h4>
             </div>
-            <GPS onCoordinatesFetched={(c) => { setCoordinates(c); setErrors((prev) => ({ ...prev, gps: null })); }} />
+            {!isReadOnly ? (
+              <GPS onCoordinatesFetched={(c) => { setCoordinates(c); setErrors((prev) => ({ ...prev, gps: null })); }} />
+            ) : (
+              coordinates.latitude && (
+                <div style={{ padding: "10px", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: "6px", fontSize: "13px" }}>
+                  Tagged Location: Lat {coordinates.latitude.toFixed(6)}, Lng {coordinates.longitude.toFixed(6)}
+                </div>
+              )
+            )}
             {errors.gps && <p style={{ color: "var(--danger)", fontSize: "12px", marginTop: "6px" }}>{errors.gps}</p>}
           </div>
 
@@ -866,111 +1071,37 @@ const ChargerSurvey = () => {
               Capture or upload 3 required angle photos of this EV charger.
             </p>
 
-            {uploading && (
-              <div style={{ padding: "10px", backgroundColor: "rgba(99, 102, 241, 0.1)", borderRadius: "8px", marginBottom: "12px" }}>
-                <p style={{ fontSize: "12px", fontWeight: "600" }}>Uploading Charger Photo... {progress}%</p>
-              </div>
-            )}
-
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
               {CHARGER_PHOTO_SECTIONS.map((sec) => {
                 const matched = findMatchedPhoto(sec.label);
-                const hasError = errors[`photo_${sec.label}`];
+                const validationError = errors[`photo_${sec.label}`];
 
                 return (
-                  <div
+                  <SinglePhotoUploader
                     key={sec.id}
-                    id={`field-photo_${sec.label}`}
-                    style={{
-                      padding: "14px",
-                      borderRadius: "8px",
-                      border: hasError ? "1px solid var(--danger)" : "1px solid var(--border-color)",
-                      backgroundColor: "var(--bg-color)",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between"
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <span style={{ fontSize: "13px", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
-                          {sec.icon} {sec.label} <span style={{ color: "var(--danger)" }}>*</span>
-                        </span>
-                        {matched && <CheckCircle2 size={16} style={{ color: "#10b981" }} />}
-                      </div>
-
-                      {matched ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <div style={{ width: "100%", height: "110px", borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)" }}>
-                            <img
-                              src={`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace("/api/v1", "") : "http://localhost:5000"}${matched.url}`}
-                              alt={sec.label}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            />
-                          </div>
-                          <p style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
-                            📍 {matched.latitude ? `${matched.latitude.toFixed(3)}, ${matched.longitude.toFixed(3)}` : "No GPS"}
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          {activePhotoSection === sec.label ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <Camera onCapture={(img) => handlePhotoCapture(img, sec.label)} />
-                              <Button variant="secondary" size="small" onClick={() => setActivePhotoSection(null)}>Cancel</Button>
-                            </div>
-                          ) : (
-                            <div
-                              onClick={() => setActivePhotoSection(sec.label)}
-                              style={{
-                                minHeight: "100px",
-                                border: hasError ? "2px dashed var(--danger)" : "2px dashed var(--border-color)",
-                                borderRadius: "6px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "6px",
-                                cursor: "pointer",
-                                padding: "12px",
-                                textAlign: "center"
-                              }}
-                            >
-                              <CameraIcon size={22} style={{ color: hasError ? "var(--danger)" : "var(--primary)" }} />
-                              <span style={{ fontSize: "12px", fontWeight: "600", color: hasError ? "var(--danger)" : "var(--primary)" }}>
-                                Capture {sec.label}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {hasError && <p style={{ color: "var(--danger)", fontSize: "11px", marginTop: "6px" }}>{hasError}</p>}
-
-                    {matched && (
-                      <div style={{ marginTop: "10px" }}>
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          onClick={() => handlePhotoDelete(matched.id)}
-                          style={{ width: "100%", color: "var(--danger)", fontSize: "11px", padding: "4px 8px" }}
-                        >
-                          <Trash2 size={12} /> Retake
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                    surveyId={surveyId}
+                    categoryId={`Charger #${assetIndex} - ${sec.label}`}
+                    label={sec.label}
+                    icon={sec.icon}
+                    coordinates={coordinates}
+                    matchedPhoto={matched}
+                    onUploadSuccess={fetchPhotos}
+                    onDeleteSuccess={fetchPhotos}
+                    validationError={validationError}
+                    readOnly={isReadOnly}
+                  />
                 );
               })}
             </div>
           </div>
 
-          <div style={{ marginTop: "20px" }}>
-            <Button type="submit" disabled={submitting} style={{ width: "100%" }}>
-              {submitting ? "Saving Charger Survey..." : `Save & Complete Charger #${assetIndex} Checklist`}
-            </Button>
-          </div>
+          {!isReadOnly && (
+            <div style={{ marginTop: "20px" }}>
+              <Button type="submit" disabled={submitting} style={{ width: "100%" }}>
+                {submitting ? "Saving Charger Survey..." : `Save & Complete Charger #${assetIndex} Checklist`}
+              </Button>
+            </div>
+          )}
         </form>
       </Card>
 

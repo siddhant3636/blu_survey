@@ -52,29 +52,38 @@ const SurveyReport = () => {
       ) : (
         <Card>
           <Table headers={["Site Name", "Surveyor", "Date Started", "Status", "Actions"]}>
-            {surveys.map((s) => (
-              <tr key={s.id}>
-                <td><strong>{s.surveySite?.name || "EV Charging Station"}</strong></td>
-                <td>{s.createdBySurveyor?.name || s.surveyor?.name || "Field Surveyor"}</td>
-                <td>{new Date(s.createdAt).toLocaleDateString()}</td>
-                <td><StatusBadge status={s.status} /></td>
-                <td>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                    <Link to={`/survey/review/${s.id}`}>
-                      <Button style={{ padding: "4px 10px", fontSize: "12px", backgroundColor: "var(--primary)" }}>
-                        🔍 Review / Audit
-                      </Button>
-                    </Link>
-                    <a href={reportService.getExcelReportUrl(s.id)} download target="_blank" rel="noreferrer">
-                      <Button variant="secondary" style={{ padding: "4px 10px", fontSize: "12px" }}>📊 Excel</Button>
-                    </a>
-                    <a href={reportService.getPDFReportUrl(s.id)} download target="_blank" rel="noreferrer">
-                      <Button style={{ padding: "4px 10px", fontSize: "12px" }}>📄 PDF</Button>
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {surveys.map((s) => {
+              const isReturned = s.status === "RETURNED";
+              return (
+                <tr
+                  key={s.id}
+                  style={isReturned ? {
+                    backgroundColor: "rgba(239, 68, 68, 0.04)",
+                    borderLeft: "4px solid #ef4444"
+                  } : {}}
+                >
+                  <td><strong>{s.surveySite?.name || "EV Charging Station"}</strong></td>
+                  <td>{s.createdBySurveyor?.name || s.surveyor?.name || "Field Surveyor"}</td>
+                  <td>{new Date(s.createdAt).toLocaleDateString()}</td>
+                  <td><StatusBadge status={s.status} /></td>
+                  <td>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <Link to={`/survey/review/${s.id}`}>
+                        <Button style={{ padding: "4px 10px", fontSize: "12px", backgroundColor: "var(--primary)" }}>
+                          🔍 Review / Audit
+                        </Button>
+                      </Link>
+                      <a href={reportService.getExcelReportUrl(s.id)} download target="_blank" rel="noreferrer">
+                        <Button variant="secondary" style={{ padding: "4px 10px", fontSize: "12px" }}>📊 Excel</Button>
+                      </a>
+                      <a href={reportService.getPDFReportUrl(s.id)} download target="_blank" rel="noreferrer">
+                        <Button style={{ padding: "4px 10px", fontSize: "12px" }}>📄 PDF</Button>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </Table>
         </Card>
       )}

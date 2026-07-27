@@ -129,15 +129,28 @@ const exportSurveyToExcel = async (survey, res) => {
         try {
           const parsed = typeof rawField === "string" ? JSON.parse(rawField) : rawField;
           if (parsed && parsed.types && Array.isArray(parsed.types)) {
-            parsed.types.filter(Boolean).forEach((type, index) => {
+            parsed.types.filter((t) => {
+              if (t && typeof t === "object") {
+                return t.rating || t.brandId;
+              }
+              return Boolean(t);
+            }).forEach((type, index) => {
+              let ratingVal = "";
+              let makerVal = makerName || "N/A";
+              if (type && typeof type === "object") {
+                ratingVal = type.rating || "N/A";
+                makerVal = type.brandName || makerName || "N/A";
+              } else {
+                ratingVal = String(type || "N/A");
+              }
               breakerSheet.addRow({
                 surveyId: survey.id,
                 chargerId: ch.id,
                 assetIndex: ch.assetIndex,
                 breakerCategory: category,
                 seqNumber: index + 1,
-                rating: type,
-                maker: makerName || "N/A",
+                rating: ratingVal,
+                maker: makerVal,
               });
             });
           }
@@ -162,29 +175,141 @@ const exportSurveyToExcel = async (survey, res) => {
     { header: "Name / Tag", key: "name", width: 25 },
     { header: "Capacity", key: "capacity", width: 20 },
     { header: "Incoming Source", key: "incomingSource", width: 25 },
-    { header: "Breaker Make / Rating", key: "breakerRating", width: 25 },
-    { header: "Cable Size", key: "cableSize", width: 20 },
+    { header: "Incoming Cable Size", key: "cableSize", width: 20 },
     { header: "Latitude", key: "latitude", width: 15 },
     { header: "Longitude", key: "longitude", width: 15 },
     { header: "Status", key: "status", width: 15 },
+    // Nested panel sections columns
+    { header: "Section", key: "sectionName", width: 30 },
+    { header: "Panel Number", key: "nestedPanelNum", width: 15 },
+    { header: "Panel Name", key: "nestedPanelName", width: 25 },
+    { header: "MCCB Number", key: "mccbNum", width: 15 },
+    { header: "MCCB Rating", key: "mccbRating", width: 20 },
+    { header: "MCCB Brand / Maker", key: "mccbBrand", width: 20 },
+    // Keep legacy column for backward compatibility
+    { header: "Breaker Make / Rating (Legacy)", key: "breakerRating", width: 30 },
   ];
   panelsSheet.getRow(1).font = { bold: true };
 
   if (survey.panels && survey.panels.length > 0) {
     survey.panels.forEach((p) => {
-      panelsSheet.addRow({
-        id: p.id,
-        surveyId: survey.id,
-        assetIndex: p.assetIndex,
-        name: p.name || "N/A",
-        capacity: p.capacity || "N/A",
-        incomingSource: p.incomingSource || "N/A",
-        breakerRating: p.breakerRating || "N/A",
-        cableSize: p.cableSize || "N/A",
-        latitude: p.latitude || "N/A",
-        longitude: p.longitude || "N/A",
-        status: p.status || "N/A",
-      });
+      let parsedSections = null;
+      try {
+        if (p.breakerRating && p.breakerRating.trim().startsWith("{")) {
+          parsedSections = JSON.parse(p.breakerRating.trim());
+        }
+      } catch (err) {
+        // Not a JSON
+      }
+
+      if (parsedSections) {
+        const sectionKeys = ["mainDistribution", "fastSlow", "fast", "slow"];
+        const sectionLabels = {
+          mainDistribution: "Main Distribution Charger Panel",
+          fastSlow: "Fast + Slow Charger Panel",
+          fast: "Fast Charger Panel",
+          slow: "Slow Charger Panel"
+        };
+
+        let hasAddedRows = false;
+
+        sectionKeys.forEach((secKey) => {
+          const list = parsedSections[secKey] || [];
+          list.forEach((panel, pIdx) => {
+            const mccbList = panel.mccb4p || [];
+            if (mccbList.length > 0) {
+              mccbList.forEach((mccb, mIdx) => {
+                panelsSheet.addRow({
+                  id: p.id,
+                  surveyId: survey.id,
+                  assetIndex: p.assetIndex,
+                  name: p.name || "N/A",
+                  capacity: p.capacity || "N/A",
+                  incomingSource: p.incomingSource || "N/A",
+                  cableSize: p.cableSize || "N/A",
+                  latitude: p.latitude || "N/A",
+                  longitude: p.longitude || "N/A",
+                  status: p.status || "N/A",
+                  sectionName: sectionLabels[secKey],
+                  nestedPanelNum: pIdx + 1,
+                  nestedPanelName: panel.name || "N/A",
+                  mccbNum: mIdx + 1,
+                  mccbRating: mccb.rating || "N/A",
+                  mccbBrand: mccb.brand || "N/A",
+                  breakerRating: "JSON Configuration",
+                });
+                hasAddedRows = true;
+              });
+            } else {
+              // Panel exists but has 0 breakers
+              panelsSheet.addRow({
+                id: p.id,
+                surveyId: survey.id,
+                assetIndex: p.assetIndex,
+                name: p.name || "N/A",
+                capacity: p.capacity || "N/A",
+                incomingSource: p.incomingSource || "N/A",
+                cableSize: p.cableSize || "N/A",
+                latitude: p.latitude || "N/A",
+                longitude: p.longitude || "N/A",
+                status: p.status || "N/A",
+                sectionName: sectionLabels[secKey],
+                nestedPanelNum: pIdx + 1,
+                nestedPanelName: panel.name || "N/A",
+                mccbNum: "N/A",
+                mccbRating: "N/A",
+                mccbBrand: "N/A",
+                breakerRating: "JSON Configuration",
+              });
+              hasAddedRows = true;
+            }
+          });
+        });
+
+        if (!hasAddedRows) {
+          // JSON parsed but empty lists
+          panelsSheet.addRow({
+            id: p.id,
+            surveyId: survey.id,
+            assetIndex: p.assetIndex,
+            name: p.name || "N/A",
+            capacity: p.capacity || "N/A",
+            incomingSource: p.incomingSource || "N/A",
+            cableSize: p.cableSize || "N/A",
+            latitude: p.latitude || "N/A",
+            longitude: p.longitude || "N/A",
+            status: p.status || "N/A",
+            sectionName: "N/A",
+            nestedPanelNum: "N/A",
+            nestedPanelName: "N/A",
+            mccbNum: "N/A",
+            mccbRating: "N/A",
+            mccbBrand: "N/A",
+            breakerRating: "JSON Configuration (Empty)",
+          });
+        }
+      } else {
+        // Legacy row
+        panelsSheet.addRow({
+          id: p.id,
+          surveyId: survey.id,
+          assetIndex: p.assetIndex,
+          name: p.name || "N/A",
+          capacity: p.capacity || "N/A",
+          incomingSource: p.incomingSource || "N/A",
+          cableSize: p.cableSize || "N/A",
+          latitude: p.latitude || "N/A",
+          longitude: p.longitude || "N/A",
+          status: p.status || "N/A",
+          sectionName: "N/A",
+          nestedPanelNum: "N/A",
+          nestedPanelName: "N/A",
+          mccbNum: "N/A",
+          mccbRating: "N/A",
+          mccbBrand: "N/A",
+          breakerRating: p.breakerRating || "N/A",
+        });
+      }
     });
   }
 

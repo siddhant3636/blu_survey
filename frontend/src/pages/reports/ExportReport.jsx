@@ -45,7 +45,7 @@ const ExportReport = () => {
               <td>{s.createdBySurveyor?.name || "Survey Person"}</td>
               <td><StatusBadge status={s.status} /></td>
               <td>
-                <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                   <a href={reportService.getExcelReportUrl(s.id)} download target="_blank" rel="noreferrer">
                     <Button variant="secondary" style={{ padding: "6px 12px", fontSize: "12px" }}>📊 Download Excel</Button>
                   </a>

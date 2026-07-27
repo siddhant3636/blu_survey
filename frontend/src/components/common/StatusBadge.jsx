@@ -5,15 +5,19 @@ const StatusBadge = ({ status }) => {
     switch (status?.toUpperCase()) {
       case "APPROVED":
       case "COMPLETED":
-        return { backgroundColor: "rgba(0, 230, 118, 0.15)", color: "var(--success)" };
-      case "ASSIGNED":
-      case "IN_PROGRESS":
-        return { backgroundColor: "rgba(0, 229, 255, 0.15)", color: "var(--secondary)" };
+        return { backgroundColor: "rgba(16, 185, 129, 0.15)", color: "#34d399" };
+      case "RETURNED":
+      case "REJECTED":
+        return { backgroundColor: "rgba(239, 68, 68, 0.15)", color: "#f87171" };
       case "PENDING":
       case "DRAFT":
-        return { backgroundColor: "rgba(255, 214, 0, 0.15)", color: "var(--warning)" };
-      case "REJECTED":
-        return { backgroundColor: "rgba(255, 23, 68, 0.15)", color: "var(--danger)" };
+        return { backgroundColor: "rgba(245, 158, 11, 0.15)", color: "#fbbf24" };
+      case "UNDER_REVIEW":
+        return { backgroundColor: "rgba(99, 102, 241, 0.15)", color: "#818cf8" };
+      case "SUBMITTED":
+      case "ASSIGNED":
+      case "IN_PROGRESS":
+        return { backgroundColor: "rgba(59, 130, 246, 0.15)", color: "#60a5fa" };
       default:
         return { backgroundColor: "var(--border-color)", color: "var(--text-secondary)" };
     }

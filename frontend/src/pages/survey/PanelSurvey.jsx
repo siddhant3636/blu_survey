@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { createPortal } from "react-dom";
 import surveyService from "../../services/survey.service";
 import masterService from "../../services/master.service";
 import Card from "../../components/common/Card";
 import Input from "../../components/common/Input";
 import Select2 from "../../components/common/Select2";
 import Button from "../../components/common/Button";
-import Camera from "../../components/common/Camera";
 import GPS from "../../components/common/GPS";
 import Loader from "../../components/common/Loader";
-import { useUpload } from "../../hooks/useUpload";
-import { Camera as CameraIcon, Trash2, CheckCircle2 } from "lucide-react";
+import SinglePhotoUploader from "../../components/common/SinglePhotoUploader";
+import { Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const PANEL_PHOTO_SECTIONS = [
   { id: "Front View", label: "Front View", icon: "📷", desc: "Front view of Panel Board door" },
@@ -18,11 +19,22 @@ const PANEL_PHOTO_SECTIONS = [
   { id: "Right View", label: "Right View", icon: "➡️", desc: "Right side clearance view" },
 ];
 
+const getSectionLabel = (key) => {
+  const labels = {
+    mainDistribution: "Main Distribution Charger Panel",
+    fastSlow: "Fast + Slow Charger Panel",
+    fast: "Fast Charger Panel",
+    slow: "Slow Charger Panel"
+  };
+  return labels[key] || key;
+};
+
 const PanelSurvey = () => {
   const { surveyId } = useParams();
   const [searchParams] = useSearchParams();
   const assetId = searchParams.get("assetId");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -30,17 +42,41 @@ const PanelSurvey = () => {
   const [errors, setErrors] = useState({});
   const [assetIndex, setAssetIndex] = useState(1);
   
+  const [isLockedByOther, setIsLockedByOther] = useState(false);
+  const [lockOwnerName, setLockOwnerName] = useState("");
+
   // Dynamic Master Dropdown Lists
   const [mccb4pRatings, setMccb4pRatings] = useState([]);
-  const [mcb2pRatings, setMcb2pRatings] = useState([]);
-  const [mcb4pRatings, setMcb4pRatings] = useState([]);
   const [makeOptions, setMakeOptions] = useState([]);
 
-  // Selected Breaker Fields
-  const [mccb4pSelected, setMccb4pSelected] = useState("");
-  const [mcb2pSelected, setMcb2pSelected] = useState("");
-  const [mcb4pSelected, setMcb4pSelected] = useState("");
-  const [selectedMake, setSelectedMake] = useState("");
+  // Dynamic Panel Sections state
+  const [panelSections, setPanelSections] = useState({
+    mainDistribution: [],
+    fastSlow: [],
+    fast: [],
+    slow: [],
+  });
+
+  const [sectionCounts, setSectionCounts] = useState({
+    mainDistribution: 0,
+    fastSlow: 0,
+    fast: 0,
+    slow: 0,
+  });
+
+  // Reduction confirmation modal state
+  const [reductionModal, setReductionModal] = useState({
+    show: false,
+    type: "", // "panel" or "mccb"
+    sectionKey: "",
+    panelIndex: null,
+    oldVal: 0,
+    newVal: 0,
+    label: "",
+    removedCount: 0,
+  });
+
+  const [legacyBreaker, setLegacyBreaker] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -51,12 +87,8 @@ const PanelSurvey = () => {
 
   // Panel Photos & Camera state
   const [panelPhotos, setPanelPhotos] = useState([]);
-  const [activePhotoSection, setActivePhotoSection] = useState(null);
+  const [surveyStatus, setSurveyStatus] = useState("DRAFT");
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
-
-  const { uploadFile, progress, loading: uploading } = useUpload(
-    `${import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"}/photos`
-  );
 
   const fetchPhotos = async () => {
     try {
@@ -66,6 +98,48 @@ const PanelSurvey = () => {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    const lockAsset = async () => {
+      if (!assetId) return;
+      try {
+        await surveyService.lockAsset("panel", assetId);
+        setIsLockedByOther(false);
+      } catch (err) {
+        if (err.response?.status === 409) {
+          setIsLockedByOther(true);
+          setLockOwnerName(err.response?.data?.message || "another surveyor");
+        } else {
+          console.error("Lock error:", err);
+        }
+      }
+    };
+    lockAsset();
+  }, [assetId]);
+
+  useEffect(() => {
+    const isReadOnlyLocal = isLockedByOther || ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+    if (isReadOnlyLocal || !assetId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        await surveyService.lockAsset("panel", assetId);
+      } catch (err) {
+        console.error("Failed to renew lock:", err);
+      }
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [assetId, isLockedByOther, surveyStatus]);
+
+  useEffect(() => {
+    return () => {
+      const isReadOnlyLocal = isLockedByOther || ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+      if (!isReadOnlyLocal && assetId) {
+        surveyService.unlockAsset("panel", assetId).catch(console.error);
+      }
+    };
+  }, [assetId, isLockedByOther, surveyStatus]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -83,18 +157,6 @@ const PanelSurvey = () => {
             .map((e) => ({ value: e.name, label: e.name }))
         );
 
-        setMcb2pRatings(
-          allEquipments
-            .filter((e) => e.description === "MCB 2P Rating")
-            .map((e) => ({ value: e.name, label: e.name }))
-        );
-
-        setMcb4pRatings(
-          allEquipments
-            .filter((e) => e.description === "MCB 4P Rating")
-            .map((e) => ({ value: e.name, label: e.name }))
-        );
-
         setMakeOptions(
           allEquipments
             .filter((e) => e.description === "MCCB MAKE" || e.description === "MCB MAKE")
@@ -102,29 +164,49 @@ const PanelSurvey = () => {
         );
 
         const sData = surveyRes.data?.data?.survey || surveyRes.data?.survey;
+        if (sData?.status) {
+          setSurveyStatus(sData.status);
+        }
         const targetAsset = (sData?.panels || []).find((p) => p.id === assetId);
         if (targetAsset) {
           setAssetIndex(targetAsset.assetIndex);
           
           let parsedRating = targetAsset.breakerRating || "";
-          let parsedMake = "";
-          if (parsedRating.includes(" (") && parsedRating.endsWith(")")) {
-            const parts = parsedRating.split(" (");
-            parsedRating = parts[0];
-            parsedMake = parts[1].slice(0, -1);
-          }
-          
-          if (parsedRating.startsWith("MCB ") && parsedRating.includes("2P")) {
-            setMcb2pSelected(parsedRating);
-          } else if (parsedRating.startsWith("MCB ") && parsedRating.includes("4P")) {
-            setMcb4pSelected(parsedRating);
-          } else if (parsedRating.startsWith("MCCB")) {
-            setMccb4pSelected(parsedRating);
-          } else if (parsedRating) {
-            setMccb4pSelected(parsedRating);
+          let parsedSections = {
+            mainDistribution: [],
+            fastSlow: [],
+            fast: [],
+            slow: [],
+          };
+
+          try {
+            if (parsedRating.startsWith("{")) {
+              parsedSections = JSON.parse(parsedRating);
+            } else if (parsedRating) {
+              setLegacyBreaker(parsedRating);
+            }
+          } catch (e) {
+            console.error("Failed to parse breakerRating as JSON", e);
+            if (parsedRating) setLegacyBreaker(parsedRating);
           }
 
-          setSelectedMake(parsedMake);
+          setSectionCounts({
+            mainDistribution: parsedSections.mainDistribution?.length || 0,
+            fastSlow: parsedSections.fastSlow?.length || 0,
+            fast: parsedSections.fast?.length || 0,
+            slow: parsedSections.slow?.length || 0,
+          });
+
+          // Ensure every loaded panel has mccbCountInput initialized
+          const sectionKeys = ["mainDistribution", "fastSlow", "fast", "slow"];
+          sectionKeys.forEach((key) => {
+            const list = parsedSections[key] || [];
+            list.forEach((p) => {
+              p.mccbCountInput = p.mccb4p?.length || 0;
+            });
+          });
+
+          setPanelSections(parsedSections);
 
           setForm({
             name: targetAsset.name || `Panel Board #${targetAsset.assetIndex}`,
@@ -157,79 +239,270 @@ const PanelSurvey = () => {
     setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
-  const handleMccb4pChange = (val) => {
-    setMccb4pSelected(val);
-    setErrors((prev) => ({ ...prev, breakerRating: null }));
-    if (val) {
-      setMcb2pSelected("");
-      setMcb4pSelected("");
+  const handlePanelCountChange = (sectionKey, rawVal) => {
+    if (rawVal === "") {
+      setSectionCounts((prev) => ({ ...prev, [sectionKey]: "" }));
+      return;
     }
-  };
 
-  const handleMcb2pChange = (val) => {
-    setMcb2pSelected(val);
-    setErrors((prev) => ({ ...prev, breakerRating: null }));
-    if (val) {
-      setMccb4pSelected("");
-      setMcb4pSelected("");
-    }
-  };
+    const cleanVal = String(rawVal).replace(/[^0-9]/g, "");
+    const newCount = cleanVal === "" ? 0 : Math.max(0, parseInt(cleanVal, 10));
 
-  const handleMcb4pChange = (val) => {
-    setMcb4pSelected(val);
-    setErrors((prev) => ({ ...prev, breakerRating: null }));
-    if (val) {
-      setMccb4pSelected("");
-      setMcb2pSelected("");
-    }
-  };
+    setSectionCounts((prev) => ({ ...prev, [sectionKey]: newCount }));
 
-  const handleMakeChange = (e) => {
-    setSelectedMake(e.target.value);
-    setErrors((prev) => ({ ...prev, selectedMake: null }));
-  };
+    const currentList = panelSections[sectionKey] || [];
+    const currentCount = currentList.length;
 
-  const handlePhotoCapture = async (base64Img, targetSecLabel) => {
-    const label = targetSecLabel || activePhotoSection;
-    if (!label) return;
-
-    const categoryId = `Panel #${assetIndex} - ${label}`;
-
-    try {
-      const resBlob = await fetch(base64Img);
-      const blob = await resBlob.blob();
-      const file = new File([blob], `panel_${assetIndex}_${label.replace(/\s+/g, "_")}-${Date.now()}.jpg`, { type: "image/jpeg" });
-
-      await uploadFile(file, {
-        surveyId,
-        categoryId,
-        latitude: coordinates.latitude || "",
-        longitude: coordinates.longitude || "",
+    if (newCount > currentCount) {
+      const expanded = [...currentList];
+      while (expanded.length < newCount) {
+        expanded.push({
+          name: "",
+          mccb4p: []
+        });
+      }
+      setPanelSections((prev) => ({ ...prev, [sectionKey]: expanded }));
+    } else if (newCount < currentCount) {
+      const toRemove = currentList.slice(newCount);
+      const hasData = toRemove.some((p) => {
+        const hasName = p.name && p.name.trim() !== "";
+        const hasMccbs = p.mccb4p && p.mccb4p.some((m) => (m.rating && m.rating.trim() !== "") || (m.brand && m.brand.trim() !== ""));
+        return hasName || hasMccbs;
       });
 
-      setActivePhotoSection(null);
-      setErrors((prev) => ({ ...prev, [`photo_${label}`]: null }));
-      fetchPhotos();
-    } catch (err) {
-      alert(err || "Photo upload failed");
+      if (hasData) {
+        setReductionModal({
+          show: true,
+          type: "panel",
+          sectionKey,
+          panelIndex: null,
+          oldVal: currentCount,
+          newVal: newCount,
+          label: getSectionLabel(sectionKey),
+          removedCount: currentCount - newCount,
+        });
+      } else {
+        const truncated = currentList.slice(0, newCount);
+        setPanelSections((prev) => ({ ...prev, [sectionKey]: truncated }));
+      }
     }
   };
 
-  const handlePhotoDelete = async (photoId) => {
-    try {
-      await surveyService.removePhoto(photoId);
-      fetchPhotos();
-    } catch (err) {
-      console.error(err);
+  const handlePanelCountBlur = (sectionKey) => {
+    const currentVal = sectionCounts[sectionKey];
+    if (currentVal === "") {
+      const currentList = panelSections[sectionKey] || [];
+      const currentCount = currentList.length;
+      if (currentCount > 0) {
+        const hasData = currentList.some((p) => {
+          const hasName = p.name && p.name.trim() !== "";
+          const hasMccbs = p.mccb4p && p.mccb4p.some((m) => (m.rating && m.rating.trim() !== "") || (m.brand && m.brand.trim() !== ""));
+          return hasName || hasMccbs;
+        });
+
+        if (hasData) {
+          setReductionModal({
+            show: true,
+            type: "panel",
+            sectionKey,
+            panelIndex: null,
+            oldVal: currentCount,
+            newVal: 0,
+            label: getSectionLabel(sectionKey),
+            removedCount: currentCount,
+          });
+        } else {
+          setSectionCounts((prev) => ({ ...prev, [sectionKey]: 0 }));
+          setPanelSections((prev) => ({ ...prev, [sectionKey]: [] }));
+        }
+      } else {
+        setSectionCounts((prev) => ({ ...prev, [sectionKey]: 0 }));
+      }
     }
+  };
+
+  const handleMccbCountChange = (sectionKey, panelIndex, rawVal) => {
+    const currentList = panelSections[sectionKey] || [];
+    const panel = currentList[panelIndex];
+    if (!panel) return;
+
+    if (rawVal === "") {
+      const updatedList = currentList.map((p, idx) =>
+        idx === panelIndex ? { ...p, mccbCountInput: "" } : p
+      );
+      setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+      return;
+    }
+
+    const cleanVal = String(rawVal).replace(/[^0-9]/g, "");
+    const newCount = cleanVal === "" ? 0 : Math.max(0, parseInt(cleanVal, 10));
+
+    const currentMccbList = panel.mccb4p || [];
+    const currentCount = currentMccbList.length;
+
+    const updatePanelMccbCount = (count, list) => {
+      const updatedList = currentList.map((p, idx) =>
+        idx === panelIndex ? { ...p, mccbCountInput: count, mccb4p: list } : p
+      );
+      setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+    };
+
+    if (newCount > currentCount) {
+      const expanded = [...currentMccbList];
+      while (expanded.length < newCount) {
+        expanded.push({ rating: "", brand: "" });
+      }
+      updatePanelMccbCount(newCount, expanded);
+    } else if (newCount < currentCount) {
+      const toRemove = currentMccbList.slice(newCount);
+      const hasData = toRemove.some((m) => (m.rating && m.rating.trim() !== "") || (m.brand && m.brand.trim() !== ""));
+
+      if (hasData) {
+        const updatedList = currentList.map((p, idx) =>
+          idx === panelIndex ? { ...p, mccbCountInput: newCount } : p
+        );
+        setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+
+        setReductionModal({
+          show: true,
+          type: "mccb",
+          sectionKey,
+          panelIndex,
+          oldVal: currentCount,
+          newVal: newCount,
+          label: `${getSectionLabel(sectionKey)} #${panelIndex + 1} Breakers`,
+          removedCount: currentCount - newCount,
+        });
+      } else {
+        const truncated = currentMccbList.slice(0, newCount);
+        updatePanelMccbCount(newCount, truncated);
+      }
+    }
+  };
+
+  const handleMccbCountBlur = (sectionKey, panelIndex) => {
+    const currentList = panelSections[sectionKey] || [];
+    const panel = currentList[panelIndex];
+    if (!panel) return;
+
+    if (panel.mccbCountInput === "") {
+      const currentMccbList = panel.mccb4p || [];
+      const currentCount = currentMccbList.length;
+      if (currentCount > 0) {
+        const hasData = currentMccbList.some((m) => (m.rating && m.rating.trim() !== "") || (m.brand && m.brand.trim() !== ""));
+        if (hasData) {
+          setReductionModal({
+            show: true,
+            type: "mccb",
+            sectionKey,
+            panelIndex,
+            oldVal: currentCount,
+            newVal: 0,
+            label: `${getSectionLabel(sectionKey)} #${panelIndex + 1} Breakers`,
+            removedCount: currentCount,
+          });
+        } else {
+          const updatedList = currentList.map((p, idx) =>
+            idx === panelIndex ? { ...p, mccbCountInput: 0, mccb4p: [] } : p
+          );
+          setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+        }
+      } else {
+        const updatedList = currentList.map((p, idx) =>
+          idx === panelIndex ? { ...p, mccbCountInput: 0 } : p
+        );
+        setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+      }
+    }
+  };
+
+  const handlePanelNameChange = (sectionKey, panelIndex, nameVal) => {
+    const currentList = panelSections[sectionKey] || [];
+    const updatedList = currentList.map((p, idx) =>
+      idx === panelIndex ? { ...p, name: nameVal } : p
+    );
+    setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[`${sectionKey}_${panelIndex}_name`];
+      return next;
+    });
+  };
+
+  const handleMccbFieldChange = (sectionKey, panelIndex, mccbIndex, fieldKey, val) => {
+    const currentList = panelSections[sectionKey] || [];
+    const panel = currentList[panelIndex];
+    if (!panel) return;
+
+    const mccbList = panel.mccb4p || [];
+    const updatedMccbList = mccbList.map((m, idx) =>
+      idx === mccbIndex ? { ...m, [fieldKey]: val } : m
+    );
+
+    const updatedList = currentList.map((p, idx) =>
+      idx === panelIndex ? { ...p, mccb4p: updatedMccbList } : p
+    );
+
+    setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[`${sectionKey}_${panelIndex}_mccb_${mccbIndex}_${fieldKey}`];
+      return next;
+    });
+  };
+
+  const handleConfirmReduction = () => {
+    const { type, sectionKey, panelIndex, newVal } = reductionModal;
+    const currentList = panelSections[sectionKey] || [];
+
+    if (type === "panel") {
+      const truncated = currentList.slice(0, newVal);
+      setPanelSections((prev) => ({ ...prev, [sectionKey]: truncated }));
+      setSectionCounts((prev) => ({ ...prev, [sectionKey]: newVal }));
+    } else if (type === "mccb") {
+      const panel = currentList[panelIndex];
+      if (panel) {
+        const currentMccbList = panel.mccb4p || [];
+        const truncated = currentMccbList.slice(0, newVal);
+        const updatedList = currentList.map((p, idx) =>
+          idx === panelIndex ? { ...p, mccb4p: truncated, mccbCountInput: newVal } : p
+        );
+        setPanelSections((prev) => ({ ...prev, [sectionKey]: updatedList }));
+      }
+    }
+
+    setReductionModal({ show: false, type: "", sectionKey: "", panelIndex: null, oldVal: 0, newVal: 0, label: "", removedCount: 0 });
+  };
+
+  const handleCancelReduction = () => {
+    const { type, sectionKey, panelIndex, oldVal } = reductionModal;
+    if (type === "panel") {
+      setSectionCounts((prev) => ({ ...prev, [sectionKey]: oldVal }));
+    } else if (type === "mccb") {
+      setPanelSections((prev) => {
+        const currentList = prev[sectionKey] || [];
+        const updatedList = currentList.map((p, idx) =>
+          idx === panelIndex ? { ...p, mccbCountInput: oldVal } : p
+        );
+        return { ...prev, [sectionKey]: updatedList };
+      });
+    }
+    setReductionModal({ show: false, type: "", sectionKey: "", panelIndex: null, oldVal: 0, newVal: 0, label: "", removedCount: 0 });
   };
 
   const findMatchedPhoto = (secLabel) => {
-    const expectedCategory = `Panel #${assetIndex} - ${secLabel}`.toLowerCase();
-    const fallbackCategory = `Panel ${secLabel}`.toLowerCase();
+    const targetLabel = secLabel.toLowerCase();
+    const expectedCategory = `panel #${assetIndex} - ${targetLabel}`;
     return panelPhotos.find((p) => {
       const name = (p.category?.name || "").toLowerCase();
-      return name === expectedCategory || (assetIndex === 1 && (name === fallbackCategory || (name.includes("panel") && name.includes(secLabel.toLowerCase()))));
+      if (name === expectedCategory) return true;
+      if (name.includes(targetLabel)) {
+        if (name.includes(`#${assetIndex}`) || name.includes(`panel ${assetIndex}`) || name.includes(`panel_${assetIndex}`)) {
+          return true;
+        }
+        if (panelPhotos.length <= 3) return true;
+      }
+      return false;
     });
   };
 
@@ -238,10 +511,6 @@ const PanelSurvey = () => {
 
     if (!form.name || !form.name.trim()) {
       newErrors.name = "Panel Board Name / Tag is required.";
-    }
-
-    if (!selectedMake || !selectedMake.trim()) {
-      newErrors.selectedMake = "Breaker Make / Brand is required.";
     }
 
     if (
@@ -261,6 +530,27 @@ const PanelSurvey = () => {
       if (!findMatchedPhoto(sec.label)) {
         newErrors[`photo_${sec.label}`] = `${sec.label} photo is required.`;
       }
+    });
+
+    // Validate the 4 dynamic panel sections
+    const sections = ["mainDistribution", "fastSlow", "fast", "slow"];
+    sections.forEach((secKey) => {
+      const list = panelSections[secKey] || [];
+      list.forEach((panel, pIdx) => {
+        if (!panel.name || !panel.name.trim()) {
+          newErrors[`${secKey}_${pIdx}_name`] = "Panel Name is required.";
+        }
+        if (panel.mccb4p) {
+          panel.mccb4p.forEach((mccb, mIdx) => {
+            if (!mccb.rating || !mccb.rating.trim()) {
+              newErrors[`${secKey}_${pIdx}_mccb_${mIdx}_rating`] = "Rating is required.";
+            }
+            if (!mccb.brand || !mccb.brand.trim()) {
+              newErrors[`${secKey}_${pIdx}_mccb_${mIdx}_brand`] = "Brand/Maker is required.";
+            }
+          });
+        }
+      });
     });
 
     setErrors(newErrors);
@@ -286,17 +576,20 @@ const PanelSurvey = () => {
 
     setSubmitting(true);
     try {
-      const activeRating = mccb4pSelected || mcb2pSelected || mcb4pSelected;
-      const combinedBreaker = selectedMake && activeRating
-        ? `${activeRating} (${selectedMake})`
-        : selectedMake || activeRating || "Default";
-        
+      const cleanedSections = {};
+      Object.keys(panelSections).forEach((key) => {
+        cleanedSections[key] = (panelSections[key] || []).map((panel) => {
+          const { mccbCountInput, ...rest } = panel;
+          return rest;
+        });
+      });
+
       const payload = {
         name: form.name.trim(),
         capacity: form.capacity.trim() || null,
         incomingSource: form.incomingSource.trim() || null,
         cableSize: form.cableSize.trim() || null,
-        breakerRating: combinedBreaker,
+        breakerRating: JSON.stringify(cleanedSections),
         latitude: parseFloat(coordinates.latitude),
         longitude: parseFloat(coordinates.longitude),
       };
@@ -310,7 +603,26 @@ const PanelSurvey = () => {
     }
   };
 
+  const isReadOnly = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+
   if (loading) return <Loader />;
+
+  if (isLockedByOther) {
+    return (
+      <div style={{ maxWidth: "500px", margin: "80px auto", textAlign: "center" }}>
+        <Card style={{ border: "1px solid var(--danger)", padding: "24px" }}>
+          <div style={{ fontSize: "40px", marginBottom: "16px" }}>🔒</div>
+          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "var(--danger)", marginBottom: "12px" }}>Access Denied</h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "24px" }}>
+            This form is currently being filled by {lockOwnerName || "another surveyor"}. To prevent concurrent edits, you cannot view or edit this form while it is locked.
+          </p>
+          <Button variant="secondary" onClick={() => navigate(`/survey/assets/${surveyId}`)}>
+            Back to Assets Matrix
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: "700px", margin: "0 auto" }}>
@@ -325,69 +637,165 @@ const PanelSurvey = () => {
         </div>
       )}
 
+      {legacyBreaker && (
+        <div style={{ padding: "12px", backgroundColor: "rgba(224, 242, 254, 0.1)", border: "1px solid #38bdf8", borderRadius: "8px", color: "#0284c7", marginBottom: "16px", fontSize: "13px" }}>
+          ℹ️ Legacy Breaker Configured: <strong>{legacyBreaker}</strong>
+        </div>
+      )}
+
       <Card>
         <form onSubmit={handleSubmit}>
           <div id="field-name">
-            <Input label="Panel Board Name / Tag" name="name" value={form.name} onChange={handleChange} required placeholder="e.g. LT Panel Board 1" error={errors.name} />
+            <Input label="Panel Board Name / Tag" name="name" value={form.name} onChange={handleChange} required placeholder="e.g. LT Panel Board 1" error={errors.name} disabled={isReadOnly} />
           </div>
 
-          <Input label="Capacity Rating (e.g. 250A, 400A TPN)" name="capacity" value={form.capacity} onChange={handleChange} placeholder="e.g. 400A TPN" />
-          <Input label="Incoming Feeder Source" name="incomingSource" value={form.incomingSource} onChange={handleChange} placeholder="e.g. Transformer 1 LT Side" />
+          <Input label="Capacity Rating (e.g. 250A, 400A TPN)" name="capacity" value={form.capacity} onChange={handleChange} placeholder="e.g. 400A TPN" disabled={isReadOnly} />
+          <Input label="Incoming Feeder Source" name="incomingSource" value={form.incomingSource} onChange={handleChange} placeholder="e.g. Transformer 1 LT Side" disabled={isReadOnly} />
           
-          {/* ⚡ Dynamic Breaker Dropdowns (MCCB 4P, MCB 2P, MCB 4P) */}
-          <div style={{ backgroundColor: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: "10px", border: "1px solid var(--border-color)", marginBottom: "20px" }}>
-            <h4 style={{ fontSize: "14px", fontWeight: "700", color: "#6366f1", marginBottom: "12px" }}>
-              ⚡ Breaker Selection (Select Type & Brand)
-            </h4>
+          {/* ⚡ Four Dynamic Panel Sections */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "24px", paddingTop: "20px", borderTop: "1px solid var(--border-color)" }}>
+            <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "8px" }}>
+              ⚡ Breaker Panels Configuration
+            </h3>
+            {Object.keys(panelSections).map((secKey) => {
+              const list = panelSections[secKey] || [];
+              const label = getSectionLabel(secKey);
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <Select2
-                label="⚡ MCCB 4P Rating (Master Data)"
-                value={mccb4pSelected}
-                onChange={(e) => handleMccb4pChange(e.target.value)}
-                options={mccb4pRatings}
-                placeholder="Select MCCB 4P Rating (e.g. MCCB 100A 4P, MCCB 250A 4P)..."
-              />
+              return (
+                <div key={secKey} style={{ backgroundColor: "rgba(255,255,255,0.01)", padding: "16px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
+                    <h4 style={{ fontSize: "14px", fontWeight: "700", color: "#6366f1" }}>
+                      {label}
+                    </h4>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>Number of Panels:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={sectionCounts[secKey]}
+                        disabled={isReadOnly}
+                        onChange={(e) => {
+                          e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
+                          handlePanelCountChange(secKey, e.target.value);
+                        }}
+                        onBlur={() => handlePanelCountBlur(secKey)}
+                        style={{
+                          width: "60px",
+                          padding: "6px 8px",
+                          backgroundColor: "var(--card-bg)",
+                          border: "1px solid var(--border-color)",
+                          borderRadius: "6px",
+                          color: "var(--text-primary)",
+                          outline: "none",
+                          textAlign: "center"
+                        }}
+                      />
+                    </div>
+                  </div>
 
-              <Select2
-                label="🔌 MCB 2P Rating (Master Data)"
-                value={mcb2pSelected}
-                onChange={(e) => handleMcb2pChange(e.target.value)}
-                options={mcb2pRatings}
-                placeholder="Select MCB 2P Rating (e.g. MCB 6A 2P, MCB 32A 2P, MCB 63A 2P)..."
-              />
+                  {list.map((panel, pIdx) => {
+                    return (
+                      <div key={pIdx} style={{ backgroundColor: "rgba(255,255,255,0.02)", padding: "14px", borderRadius: "8px", border: "1px solid var(--border-color)", marginBottom: "12px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                          <strong style={{ fontSize: "13px" }}>{label} #{pIdx + 1}</strong>
+                        </div>
 
-              <Select2
-                label="⚡ MCB 4P Rating (Master Data)"
-                value={mcb4pSelected}
-                onChange={(e) => handleMcb4pChange(e.target.value)}
-                options={mcb4pRatings}
-                placeholder="Select MCB 4P Rating (e.g. MCB 6A 4P, MCB 32A 4P, MCB 63A 4P)..."
-              />
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px", marginBottom: "12px" }}>
+                          <div id={`field-${secKey}_${pIdx}_name`}>
+                            <Input
+                              label="Panel Name / Tag *"
+                              value={panel.name || ""}
+                              onChange={(e) => handlePanelNameChange(secKey, pIdx, e.target.value)}
+                              placeholder="e.g. MDB-01"
+                              error={errors[`${secKey}_${pIdx}_name`]}
+                              disabled={isReadOnly}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: "block", fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", marginBottom: "8px" }}>
+                              MCCB 4P Count
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={panel.mccbCountInput !== undefined ? panel.mccbCountInput : (panel.mccb4p?.length || 0)}
+                              disabled={isReadOnly}
+                              onChange={(e) => {
+                                e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
+                                handleMccbCountChange(secKey, pIdx, e.target.value);
+                              }}
+                              onBlur={() => handleMccbCountBlur(secKey, pIdx)}
+                              style={{
+                                width: "100%",
+                                padding: "12px 16px",
+                                backgroundColor: "var(--card-bg)",
+                                border: "1px solid var(--border-color)",
+                                borderRadius: "var(--border-radius)",
+                                color: "var(--text-primary)",
+                                outline: "none",
+                                fontSize: "14px"
+                              }}
+                            />
+                          </div>
+                        </div>
 
-              <div id="field-selectedMake">
-                <Select2
-                  label="🏷️ Breaker Make / Brand (Master Data)"
-                  name="selectedMake"
-                  value={selectedMake}
-                  onChange={handleMakeChange}
-                  options={makeOptions}
-                  placeholder="Select Breaker Brand (Schneider Electric, L&T, ABB, Havells)..."
-                  required
-                  error={errors.selectedMake}
-                />
-              </div>
-            </div>
+                        {(panel.mccb4p || []).map((mccb, mIdx) => {
+                          return (
+                            <div key={mIdx} style={{ backgroundColor: "rgba(0,0,0,0.1)", padding: "12px", borderRadius: "6px", border: "1px solid var(--border-color)", marginBottom: "8px" }}>
+                              <div style={{ fontSize: "12px", fontWeight: "700", marginBottom: "8px" }}>
+                                MCCB 4P #{mIdx + 1}
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
+                                <div id={`field-${secKey}_${pIdx}_mccb_${mIdx}_rating`}>
+                                  <Select2
+                                    label="Rating *"
+                                    value={mccb.rating || ""}
+                                    onChange={(e) => handleMccbFieldChange(secKey, pIdx, mIdx, "rating", e.target.value)}
+                                    options={mccb4pRatings}
+                                    placeholder="Select Rating..."
+                                    error={errors[`${secKey}_${pIdx}_mccb_${mIdx}_rating`]}
+                                    disabled={isReadOnly}
+                                  />
+                                </div>
+                                <div id={`field-${secKey}_${pIdx}_mccb_${mIdx}_brand`}>
+                                  <Select2
+                                    label="Brand / Maker *"
+                                    value={mccb.brand || ""}
+                                    onChange={(e) => handleMccbFieldChange(secKey, pIdx, mIdx, "brand", e.target.value)}
+                                    options={makeOptions}
+                                    placeholder="Select Brand..."
+                                    error={errors[`${secKey}_${pIdx}_mccb_${mIdx}_brand`]}
+                                    disabled={isReadOnly}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
 
-          <Input label="Incoming Cable Size & Specification" name="cableSize" value={form.cableSize} onChange={handleChange} placeholder="e.g. 3.5C x 240 sqmm Armoured Al" />
+          <Input label="Incoming Cable Size & Specification" name="cableSize" value={form.cableSize} onChange={handleChange} placeholder="e.g. 3.5C x 240 sqmm Armoured Al" disabled={isReadOnly} />
 
           {/* 📍 GPS Tagging Section */}
           <div id="field-gps" style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid var(--border-color)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
               <h4 style={{ fontSize: "14px", fontWeight: "700" }}>📍 GPS Location Tagging <span style={{ color: "var(--danger)" }}>*</span></h4>
             </div>
-            <GPS onCoordinatesFetched={(c) => { setCoordinates(c); setErrors((prev) => ({ ...prev, gps: null })); }} />
+            {!isReadOnly ? (
+              <GPS onCoordinatesFetched={(c) => { setCoordinates(c); setErrors((prev) => ({ ...prev, gps: null })); }} />
+            ) : (
+              coordinates.latitude && (
+                <div style={{ padding: "10px", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: "6px", fontSize: "13px" }}>
+                  Tagged Location: Lat {coordinates.latitude.toFixed(6)}, Lng {coordinates.longitude.toFixed(6)}
+                </div>
+              )
+            )}
             {errors.gps && <p style={{ color: "var(--danger)", fontSize: "12px", marginTop: "6px" }}>{errors.gps}</p>}
           </div>
 
@@ -397,114 +805,85 @@ const PanelSurvey = () => {
               📷 Upload Panel #{assetIndex} Photos (Front, Left, Right) <span style={{ color: "var(--danger)" }}>*</span>
             </h4>
             <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "14px" }}>
-              Capture or upload 3 required angle photos of this electrical panel.
+              Capture 3 required angle photos of this electrical panel.
             </p>
-
-            {uploading && (
-              <div style={{ padding: "10px", backgroundColor: "rgba(99, 102, 241, 0.1)", borderRadius: "8px", marginBottom: "12px" }}>
-                <p style={{ fontSize: "12px", fontWeight: "600" }}>Uploading Panel Photo... {progress}%</p>
-              </div>
-            )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
               {PANEL_PHOTO_SECTIONS.map((sec) => {
                 const matched = findMatchedPhoto(sec.label);
-                const hasError = errors[`photo_${sec.label}`];
+                const validationError = errors[`photo_${sec.label}`];
 
                 return (
-                  <div
+                  <SinglePhotoUploader
                     key={sec.id}
-                    id={`field-photo_${sec.label}`}
-                    style={{
-                      padding: "14px",
-                      borderRadius: "8px",
-                      border: hasError ? "1px solid var(--danger)" : "1px solid var(--border-color)",
-                      backgroundColor: "var(--bg-color)",
-                      display: "flex",
-                      flexDirection: "column",
-                      justify: "space-between"
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <span style={{ fontSize: "13px", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
-                          {sec.icon} {sec.label} <span style={{ color: "var(--danger)" }}>*</span>
-                        </span>
-                        {matched && <CheckCircle2 size={16} style={{ color: "#10b981" }} />}
-                      </div>
-
-                      {matched ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <div style={{ width: "100%", height: "110px", borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)" }}>
-                            <img
-                              src={`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace("/api/v1", "") : "http://localhost:5000"}${matched.url}`}
-                              alt={sec.label}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            />
-                          </div>
-                          <p style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
-                            📍 {matched.latitude ? `${matched.latitude.toFixed(3)}, ${matched.longitude.toFixed(3)}` : "No GPS"}
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          {activePhotoSection === sec.label ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <Camera onCapture={(img) => handlePhotoCapture(img, sec.label)} />
-                              <Button variant="secondary" size="small" onClick={() => setActivePhotoSection(null)}>Cancel</Button>
-                            </div>
-                          ) : (
-                            <div
-                              onClick={() => setActivePhotoSection(sec.label)}
-                              style={{
-                                minHeight: "100px",
-                                border: hasError ? "2px dashed var(--danger)" : "2px dashed var(--border-color)",
-                                borderRadius: "6px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "6px",
-                                cursor: "pointer",
-                                padding: "12px",
-                                textAlign: "center"
-                              }}
-                            >
-                              <CameraIcon size={22} style={{ color: hasError ? "var(--danger)" : "var(--primary)" }} />
-                              <span style={{ fontSize: "12px", fontWeight: "600", color: hasError ? "var(--danger)" : "var(--primary)" }}>
-                                Capture {sec.label}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {hasError && <p style={{ color: "var(--danger)", fontSize: "11px", marginTop: "6px" }}>{hasError}</p>}
-
-                    {matched && (
-                      <div style={{ marginTop: "10px" }}>
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          onClick={() => handlePhotoDelete(matched.id)}
-                          style={{ width: "100%", color: "var(--danger)", fontSize: "11px", padding: "4px 8px" }}
-                        >
-                          <Trash2 size={12} /> Retake
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                    surveyId={surveyId}
+                    categoryId={`Panel #${assetIndex} - ${sec.label}`}
+                    label={sec.label}
+                    icon={sec.icon}
+                    coordinates={coordinates}
+                    matchedPhoto={matched}
+                    onUploadSuccess={fetchPhotos}
+                    onDeleteSuccess={fetchPhotos}
+                    validationError={validationError}
+                    readOnly={isReadOnly}
+                  />
                 );
               })}
             </div>
           </div>
           
-          <Button type="submit" disabled={submitting} style={{ width: "100%", marginTop: "24px" }}>
-            {submitting ? "Saving Panel Survey..." : `Save & Complete Panel #${assetIndex} Checklist`}
-          </Button>
+          {!isReadOnly && (
+            <Button type="submit" disabled={submitting} style={{ width: "100%", marginTop: "24px" }}>
+              {submitting ? "Saving Panel Survey..." : `Save & Complete Panel #${assetIndex} Checklist`}
+            </Button>
+          )}
         </form>
       </Card>
+
+      {/* ⚠️ REDUCTION CONFIRMATION MODAL */}
+      {reductionModal.show && createPortal(
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--danger)", marginBottom: "12px" }}>
+              <AlertTriangle size={24} />
+              <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--text-primary)" }}>
+                Confirm Count Reduction
+              </h3>
+            </div>
+
+            <p style={{ fontSize: "14px", color: "var(--text-secondary)", lineHeight: "1.5", marginBottom: "16px" }}>
+              You are reducing the count for <strong>{reductionModal.label}</strong> from <strong>{reductionModal.oldVal}</strong> to <strong>{reductionModal.newVal}</strong>.
+            </p>
+
+            <div style={{
+              backgroundColor: "rgba(0,0,0,0.2)",
+              borderRadius: "8px",
+              padding: "12px",
+              marginBottom: "20px",
+              border: "1px solid var(--border-color)",
+              color: "var(--danger)",
+              fontSize: "13px",
+              fontWeight: "600"
+            }}>
+              ⚠️ The last {reductionModal.removedCount} configured item {reductionModal.removedCount === 1 ? "" : "s"} will be permanently removed.
+            </div>
+
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "20px" }}>
+              Do you want to continue? Lower-numbered records will be preserved intact.
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", flexWrap: "wrap" }}>
+              <Button variant="secondary" onClick={handleCancelReduction}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmReduction} style={{ backgroundColor: "var(--danger)" }}>
+                Confirm Reduction
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

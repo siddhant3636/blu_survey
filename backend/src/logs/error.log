@@ -1,3 +1,26 @@
 [2026-07-23 06:34:34:3434] [[31merror[39m]: [31mError compressing image: Input file contains unsupported image format[39m
 [2026-07-23 06:34:38:3438] [[31merror[39m]: [31mError compressing image: Input file contains unsupported image format[39m
 [2026-07-23 06:34:42:3442] [[31merror[39m]: [31mError compressing image: Input file contains unsupported image format[39m
+[2026-07-24 10:08:55:855] [[31merror[39m]: [31mError compressing image: Input file contains unsupported image format[39m
+[2026-07-25 01:19:04:194] [[31merror[39m]: [31m[39m
+[31mInvalid `prisma.surveySite.count()` invocation in[39m
+[31mD:\Code-SID\Blu_Smart_Charge_Survey\backend\src\modules\dashboard\dashboard.service.js:16:23[39m
+
+[31m  13   assignmentCount,[39m
+[31m  14 ] = await Promise.all([[39m
+[31m  15   prisma.user.count({ where: { isDeleted: false } }),[39m
+[31m→ 16   prisma.surveySite.count([39m
+[31mCan't reach database server at `127.0.0.1:5432`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:5432`. - /api/v1/dashboard - GET - ::1[39m
+[2026-07-25 01:32:32:3232] [[31merror[39m]: [31m[39m
+[31mInvalid `prisma.survey.count()` invocation in[39m
+[31mD:\Code-SID\Blu_Smart_Charge_Survey\backend\src\modules\dashboard\dashboard.service.js:20:19[39m
+
+[31m  17 prisma.surveySite.count({ where: { isDeleted: false, status: "PENDING" } }),[39m
+[31m  18 prisma.surveySite.count({ where: { isDeleted: false, status: "IN_PROGRESS" } }),[39m
+[31m  19 prisma.surveySite.count({ where: { isDeleted: false, status: "COMPLETED" } }),[39m
+[31m→ 20 prisma.survey.count([39m
+[31mCan't reach database server at `127.0.0.1:5432`[39m
+
+[31mPlease make sure your database server is running at `127.0.0.1:5432`. - /api/v1/dashboard - GET - ::1[39m

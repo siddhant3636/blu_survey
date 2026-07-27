@@ -302,9 +302,14 @@ const FinalReview = () => {
                       onClick={() => toggleItem(itemKey)}
                       style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", backgroundColor: "rgba(255,255,255,0.01)" }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         <strong style={{ fontSize: "14px" }}>Charger #{c.assetIndex}</strong>
+                        {c.lockedByUser && (
+                          <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                            👤 Filled by: {c.lockedByUser.name}
+                          </span>
+                        )}
                         {isComplete ? <span style={{ fontSize: "11px", color: "#10b981", fontWeight: "600", backgroundColor: "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: "4px" }}>✓ Completed</span> : <span style={{ fontSize: "11px", color: "var(--danger)", fontWeight: "600", backgroundColor: "rgba(239,68,68,0.1)", padding: "2px 6px", borderRadius: "4px" }}>⚠️ Incomplete</span>}
                       </div>
 
@@ -337,27 +342,40 @@ const FinalReview = () => {
                             if (!raw) return;
                             try {
                               const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-                              if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && Array.isArray(parsed.types)) {
-                                const validTypes = parsed.types.filter(Boolean);
-                                if (parsed.count > 0 && validTypes.length > 0) {
-                                  parts.push(`${label} (${parsed.count}): ${validTypes.join(", ")}`);
-                                  return;
+                              if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                                if (Array.isArray(parsed.types)) {
+                                  const validTypes = parsed.types.filter((t) => {
+                                    if (t && typeof t === "object") return t.rating || t.brandId;
+                                    return Boolean(t);
+                                  });
+                                  if (parsed.count > 0 && validTypes.length > 0) {
+                                    const itemsText = validTypes.map((t, idx) => {
+                                      if (t && typeof t === "object") {
+                                        const brandStr = t.brandName ? ` (${t.brandName})` : "";
+                                        return `#${idx + 1}: ${t.rating || "N/A"}${brandStr}`;
+                                      }
+                                      return `#${idx + 1}: ${t}`;
+                                    }).join(", ");
+                                    parts.push(`${label} (${parsed.count}): [${itemsText}]`);
+                                  }
                                 }
+                                return;
                               } else if (Array.isArray(parsed) && parsed.length > 0) {
-                                parts.push(`${label} (${parsed.length}): ${parsed.join(", ")}`);
+                                const itemsText = parsed.map((t, idx) => `#${idx + 1}: ${t}`).join(", ");
+                                parts.push(`${label} (${parsed.length}): [${itemsText}]`);
                                 return;
                               }
                             } catch (e) {}
-                            if (typeof raw === "string" && raw.trim() !== "") {
+                            if (typeof raw === "string" && raw.trim() !== "" && !raw.trim().startsWith("{")) {
                               parts.push(`${label}: ${raw}`);
                             }
                           };
                           formatField(c.mccb4p, "MCCB 4P");
                           formatField(c.mcb2p, "MCB 2P");
                           formatField(c.mcb4p, "MCB 4P");
-                          return parts.length > 0 ? parts.join(" | ") : "N/A";
+                          return parts.length > 0 ? parts.join(" | ") : "None";
                         })()}</strong></div>
-                        <div><span style={{ color: "var(--text-secondary)" }}>Type & Speed:</span> <strong>{c.chargerType} ({c.chargerCategory})</strong></div>
+                        <div><span style={{ color: "var(--text-secondary)" }}>Type & Speed:</span> <strong>{c.chargerType === c.chargerCategory ? c.chargerType : `${c.chargerType} (${c.chargerCategory || "N/A"})`}</strong></div>
                         <div><span style={{ color: "var(--text-secondary)" }}>Operational Status:</span> <strong>{c.currentStatus || "N/A"}</strong></div>
                         <div><span style={{ color: "var(--text-secondary)" }}>Earthing Status:</span> <strong>{c.earthingStatus || "N/A"}</strong></div>
                         <div style={{ gridColumn: "1 / -1" }}>
@@ -412,9 +430,14 @@ const FinalReview = () => {
                       onClick={() => toggleItem(itemKey)}
                       style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", backgroundColor: "rgba(255,255,255,0.01)" }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         <strong style={{ fontSize: "14px" }}>Panel #{p.assetIndex} - {p.name || `Panel Board #${p.assetIndex}`}</strong>
+                        {p.lockedByUser && (
+                          <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                            👤 Filled by: {p.lockedByUser.name}
+                          </span>
+                        )}
                         {isComplete ? <span style={{ fontSize: "11px", color: "#10b981", fontWeight: "600", backgroundColor: "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: "4px" }}>✓ Completed</span> : <span style={{ fontSize: "11px", color: "var(--danger)", fontWeight: "600", backgroundColor: "rgba(239,68,68,0.1)", padding: "2px 6px", borderRadius: "4px" }}>⚠️ Incomplete</span>}
                       </div>
 
@@ -436,7 +459,53 @@ const FinalReview = () => {
                         <div><span style={{ color: "var(--text-secondary)" }}>Panel Name / Tag:</span> <strong>{p.name || "N/A"}</strong></div>
                         <div><span style={{ color: "var(--text-secondary)" }}>Capacity Rating:</span> <strong>{p.capacity || "N/A"}</strong></div>
                         <div><span style={{ color: "var(--text-secondary)" }}>Incoming Source:</span> <strong>{p.incomingSource || "N/A"}</strong></div>
-                        <div><span style={{ color: "var(--text-secondary)" }}>Breaker Make / Rating:</span> <strong>{p.breakerRating || "N/A"}</strong></div>
+                        {p.breakerRating && p.breakerRating.startsWith("{") ? (
+                          <div style={{ gridColumn: "1 / -1", backgroundColor: "rgba(255,255,255,0.01)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                            <span style={{ color: "var(--text-secondary)", fontWeight: "700" }}>Breaker Panels Checklist:</span>
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(p.breakerRating);
+                                const sectionLabels = {
+                                  mainDistribution: "Main Distribution Charger Panel",
+                                  fastSlow: "Fast + Slow Charger Panel",
+                                  fast: "Fast Charger Panel",
+                                  slow: "Slow Charger Panel"
+                                };
+                                return Object.keys(sectionLabels).map((secKey) => {
+                                  const list = parsed[secKey] || [];
+                                  if (list.length === 0) return null;
+                                  return (
+                                    <div key={secKey} style={{ marginTop: "10px" }}>
+                                      <span style={{ color: "#6366f1", fontWeight: "600" }}>⚡ {sectionLabels[secKey]} ({list.length})</span>
+                                      <div style={{ paddingLeft: "12px", marginTop: "6px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                        {list.map((panel, pIdx) => (
+                                          <div key={pIdx} style={{ backgroundColor: "rgba(255,255,255,0.01)", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)" }}>
+                                            <strong>Panel #{pIdx + 1}: {panel.name || "N/A"}</strong>
+                                            <div style={{ paddingLeft: "10px", marginTop: "4px" }}>
+                                              {panel.mccb4p && panel.mccb4p.length > 0 ? (
+                                                panel.mccb4p.map((mccb, mIdx) => (
+                                                  <div key={mIdx} style={{ color: "var(--text-secondary)" }}>
+                                                    • MCCB 4P #{mIdx + 1} - Rating: <strong>{mccb.rating || "N/A"}</strong> | Brand: <strong>{mccb.brand || "N/A"}</strong>
+                                                  </div>
+                                                ))
+                                              ) : (
+                                                <div style={{ color: "var(--text-secondary)" }}>No MCCB 4P breakers.</div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              } catch (e) {
+                                return <strong>Invalid panel JSON structure</strong>;
+                              }
+                            })()}
+                          </div>
+                        ) : (
+                          <div><span style={{ color: "var(--text-secondary)" }}>Breaker Make / Rating:</span> <strong>{p.breakerRating || "N/A"}</strong></div>
+                        )}
                         <div><span style={{ color: "var(--text-secondary)" }}>Cable Specification:</span> <strong>{p.cableSize || "N/A"}</strong></div>
                         <div style={{ gridColumn: "1 / -1" }}>
                           <span style={{ color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}><MapPin size={12} /> GPS Coordinates:</span>
@@ -490,9 +559,14 @@ const FinalReview = () => {
                       onClick={() => toggleItem(itemKey)}
                       style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", backgroundColor: "rgba(255,255,255,0.01)" }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         <strong style={{ fontSize: "14px" }}>Transformer #{t.assetIndex}</strong>
+                        {t.lockedByUser && (
+                          <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                            👤 Filled by: {t.lockedByUser.name}
+                          </span>
+                        )}
                         {isComplete ? <span style={{ fontSize: "11px", color: "#10b981", fontWeight: "600", backgroundColor: "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: "4px" }}>✓ Completed</span> : <span style={{ fontSize: "11px", color: "var(--danger)", fontWeight: "600", backgroundColor: "rgba(239,68,68,0.1)", padding: "2px 6px", borderRadius: "4px" }}>⚠️ Incomplete</span>}
                       </div>
 
@@ -568,9 +642,14 @@ const FinalReview = () => {
                       onClick={() => toggleItem(itemKey)}
                       style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", backgroundColor: "rgba(255,255,255,0.01)" }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         <strong style={{ fontSize: "14px" }}>DG Set #{d.assetIndex}</strong>
+                        {d.lockedByUser && (
+                          <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: "600", backgroundColor: "rgba(99, 102, 241, 0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                            👤 Filled by: {d.lockedByUser.name}
+                          </span>
+                        )}
                         {isComplete ? <span style={{ fontSize: "11px", color: "#10b981", fontWeight: "600", backgroundColor: "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: "4px" }}>✓ Completed</span> : <span style={{ fontSize: "11px", color: "var(--danger)", fontWeight: "600", backgroundColor: "rgba(239,68,68,0.1)", padding: "2px 6px", borderRadius: "4px" }}>⚠️ Incomplete</span>}
                       </div>
 
@@ -658,11 +737,11 @@ const FinalReview = () => {
           </Button>
           
           <Button
-            disabled={!isFullyComplete || survey.status === "SUBMITTED" || submitting}
+            disabled={!isFullyComplete || ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status) || submitting}
             onClick={() => setShowSubmitModal(true)}
             style={{ backgroundColor: isFullyComplete ? "var(--primary)" : "var(--border-color)", padding: "12px 28px", fontSize: "15px" }}
           >
-            {survey.status === "SUBMITTED" ? "✓ Survey Submitted" : "🚀 Submit Survey"}
+            {["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status) ? "✓ Survey Submitted" : "🚀 Submit Survey"}
           </Button>
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import siteService from "../../services/site.service";
+import userService from "../../services/user.service";
 import { useAuth } from "../../hooks/useAuth";
 import Input from "../../components/common/Input";
 import Select from "../../components/common/Select";
@@ -13,15 +14,15 @@ const EditSite = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [form, setForm] = useState({
-    siteId: "",
     name: "",
     concessionaire: "",
     landOwningAgency: "",
     address: "",
-    latitude: "",
-    longitude: "",
     status: "PENDING",
   });
+  const [siteIdDisplay, setSiteIdDisplay] = useState("");
+  const [surveyors, setSurveyors] = useState([]);
+  const [selectedSurveyorIds, setSelectedSurveyorIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -30,34 +31,54 @@ const EditSite = () => {
   const canEditDetails = role === "ADMIN" || role === "SUB_ADMIN";
 
   useEffect(() => {
-    const fetchSite = async () => {
+    const fetchData = async () => {
       try {
-        const res = await siteService.getSite(id);
-        const siteData = res.data?.data?.site || res.data?.site;
+        const [siteRes, usersRes] = await Promise.all([
+          siteService.getSite(id),
+          userService.getUsers(),
+        ]);
+        const siteData = siteRes.data?.data?.site || siteRes.data?.site;
+        const userList = usersRes.data?.data?.users || usersRes.data?.users || [];
+        
         if (siteData) {
           setForm({
-            siteId: siteData.siteId || "",
             name: siteData.name || "",
             concessionaire: siteData.concessionaire || "",
             landOwningAgency: siteData.landOwningAgency || "",
             address: siteData.address || "",
-            latitude: siteData.latitude !== null && siteData.latitude !== undefined ? String(siteData.latitude) : "",
-            longitude: siteData.longitude !== null && siteData.longitude !== undefined ? String(siteData.longitude) : "",
             status: siteData.status || "PENDING",
           });
+          setSiteIdDisplay(siteData.siteId || "");
+          
+          const initialSurveyorIds = (siteData.assignments || [])
+            .filter((a) => !a.isDeleted)
+            .map((a) => a.surveyorId);
+          setSelectedSurveyorIds(initialSurveyorIds);
         }
+
+        setSurveyors(
+          userList.filter(
+            (u) => u.role === "SURVEY_PERSON" || u.role === "SURVEYOR"
+          )
+        );
       } catch (err) {
         console.error(err);
-        setError("Failed to fetch site data");
+        setError("Failed to fetch site and surveyor data");
       } finally {
         setLoading(false);
       }
     };
-    fetchSite();
+    fetchData();
   }, [id]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSurveyorToggle = (sId) => {
+    setSelectedSurveyorIds((prev) =>
+      prev.includes(sId) ? prev.filter((id) => id !== sId) : [...prev, sId]
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -67,14 +88,12 @@ const EditSite = () => {
 
     try {
       const payload = {
-        siteId: form.siteId ? form.siteId.trim() : undefined,
         name: form.name,
         concessionaire: form.concessionaire,
         landOwningAgency: form.landOwningAgency,
         address: form.address,
-        latitude: form.latitude ? parseFloat(form.latitude) : null,
-        longitude: form.longitude ? parseFloat(form.longitude) : null,
         status: form.status,
+        surveyorIds: selectedSurveyorIds,
       };
 
       await siteService.updateSite(id, payload);
@@ -91,7 +110,7 @@ const EditSite = () => {
 
   return (
     <div style={{ maxWidth: "550px", margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+      <div className="responsive-header-bar">
         <h2>Edit Survey Site</h2>
         <Button variant="secondary" onClick={() => navigate("/survey-sites")}>Back to Sites List</Button>
       </div>
@@ -100,15 +119,31 @@ const EditSite = () => {
 
       <Card>
         <form onSubmit={handleSubmit}>
+          {siteIdDisplay && (
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "8px" }}>
+                Site ID (System Generated)
+              </label>
+              <div style={{
+                padding: "12px 16px",
+                backgroundColor: "rgba(255,255,255,0.05)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--border-radius)",
+                color: "var(--text-primary)",
+                fontWeight: "600",
+                fontSize: "14px"
+              }}>
+                {siteIdDisplay}
+              </div>
+            </div>
+          )}
+
           {canEditDetails && (
             <>
-              <Input label="Site ID" name="siteId" value={form.siteId} onChange={handleChange} placeholder="e.g. BSC001" />
-              <Input label="Site Name" name="name" value={form.name} onChange={handleChange} required placeholder="Site Name" />
+              <Input label="Site Name *" name="name" value={form.name} onChange={handleChange} required placeholder="Site Name" />
               <Input label="Concessionaire" name="concessionaire" value={form.concessionaire} onChange={handleChange} placeholder="Concessionaire name" />
               <Input label="Land Owning Agency" name="landOwningAgency" value={form.landOwningAgency} onChange={handleChange} placeholder="Land owning agency" />
-              <Input label="Full Address" name="address" value={form.address} onChange={handleChange} required placeholder="Site address" />
-              <Input label="Latitude" name="latitude" type="number" step="any" value={form.latitude} onChange={handleChange} placeholder="e.g. 28.6328" />
-              <Input label="Longitude" name="longitude" type="number" step="any" value={form.longitude} onChange={handleChange} placeholder="e.g. 77.2197" />
+              <Input label="Full Address *" name="address" value={form.address} onChange={handleChange} required placeholder="Site address" />
             </>
           )}
           
@@ -125,6 +160,40 @@ const EditSite = () => {
             ]}
             required
           />
+
+          {canEditDetails && (
+            <div style={{ margin: "20px 0" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "14px" }}>
+                Assign Field Surveyor(s) (Select One or Multiple)
+              </label>
+              {surveyors.length === 0 ? (
+                <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>No active Survey Persons found in system.</p>
+              ) : (
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  maxHeight: "200px",
+                  overflowY: "auto",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "var(--border-radius)",
+                  padding: "12px",
+                }}>
+                  {surveyors.map((s) => (
+                    <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px" }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSurveyorIds.includes(s.id)}
+                        onChange={() => handleSurveyorToggle(s.id)}
+                      />
+                      <span><strong>{s.name}</strong> ({s.email})</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <Button type="submit" style={{ width: "100%", marginTop: "20px" }} disabled={saving}>
             {saving ? "Updating Site..." : "Update Site Details"}
           </Button>

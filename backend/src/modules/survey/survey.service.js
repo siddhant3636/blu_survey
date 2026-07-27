@@ -1,10 +1,23 @@
 const { prisma } = require("../../config/database");
+const { formatPhotoPath } = require("../photos/photo.helper");
 
 const getAllSurveys = async (user) => {
   let where = { isDeleted: false };
 
   if (user && (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR")) {
-    where.createdById = user.id;
+    where.OR = [
+      { createdById: user.id },
+      {
+        surveySite: {
+          assignments: {
+            some: {
+              surveyorId: user.id,
+              isDeleted: false,
+            }
+          }
+        }
+      }
+    ];
   } else if (user && user.role === "SUB_ADMIN") {
     const managedSurveyors = await prisma.user.findMany({
       where: {
@@ -120,14 +133,26 @@ const getSurveyById = async (id, user) => {
     }
   }
 
+  if (survey.photos) {
+    survey.photos = survey.photos.map(formatPhotoPath);
+  }
+
   return survey;
 };
 
-const getSurveyBySiteId = async (surveySiteId) => {
-  return prisma.survey.findFirst({
-    where: { surveySiteId, isDeleted: false },
+const getSurveyBySiteId = async (surveySiteId, user) => {
+  let where = { surveySiteId, isDeleted: false, status: { not: "APPROVED" } };
+  
+  const survey = await prisma.survey.findFirst({
+    where,
     include: {
-      surveySite: true,
+      surveySite: {
+        include: {
+          assignments: {
+            where: { isDeleted: false }
+          }
+        }
+      },
       chargers: {
         where: { isDeleted: false },
         include: {
@@ -163,6 +188,21 @@ const getSurveyBySiteId = async (surveySiteId) => {
       },
     },
   });
+
+  if (!survey) return null;
+
+  if (user) {
+    if (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR") {
+      const isAssigned = survey.surveySite?.assignments?.some((a) => a.surveyorId === user.id);
+      if (!isAssigned && survey.createdById !== user.id) {
+        const error = new Error("Access denied. You can only access your assigned surveys.");
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+  }
+
+  return survey;
 };
 
 // ------------------------------------
@@ -228,9 +268,27 @@ const initiateStep1 = async (surveyorId, data) => {
       data: { status: "IN_PROGRESS" },
     });
 
-    // Check if survey container already exists for this site
+    // Check if survey container already exists for this site which is not yet APPROVED
     let survey = await tx.survey.findFirst({
-      where: { surveySiteId, isDeleted: false },
+      where: {
+        surveySiteId,
+        status: { not: "APPROVED" },
+        isDeleted: false,
+      },
+    });
+
+    if (survey) {
+      if (survey.firstPageLocked && survey.firstPageLockedByUserId !== surveyorId) {
+        throw new Error(`The first page has already been completed by ${survey.firstPageLockedBy || "another surveyor"}.`);
+      }
+      if (["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status)) {
+        throw new Error("This survey has been submitted and is locked for editing.");
+      }
+    }
+
+    const userObj = await tx.user.findUnique({
+      where: { id: surveyorId },
+      select: { name: true }
     });
 
     if (!survey) {
@@ -239,13 +297,23 @@ const initiateStep1 = async (surveyorId, data) => {
           surveySiteId,
           createdById: surveyorId,
           status: "DRAFT",
+          firstPageLocked: true,
+          firstPageLockedBy: userObj?.name || "Surveyor",
+          firstPageLockedByUserId: surveyorId,
+          firstPageLockedAt: new Date(),
           ...step1Payload,
         },
       });
     } else {
       survey = await tx.survey.update({
         where: { id: survey.id },
-        data: step1Payload,
+        data: {
+          ...step1Payload,
+          firstPageLocked: true,
+          firstPageLockedBy: userObj?.name || "Surveyor",
+          firstPageLockedByUserId: surveyorId,
+          firstPageLockedAt: new Date(),
+        },
       });
     }
 
@@ -340,16 +408,76 @@ const lockAsset = async (userId, { assetType, assetId }) => {
   const model = modelMap[assetType.toLowerCase()];
   if (!model) throw new Error("Invalid asset type.");
 
-  const asset = await model.findUnique({
-    where: { id: assetId },
+  const lockedAsset = await prisma.$transaction(async (tx) => {
+    const asset = await tx[assetType.toLowerCase()].findUnique({
+      where: { id: assetId },
+      include: {
+        lockedByUser: { select: { id: true, name: true, email: true } },
+      }
+    });
+
+    if (!asset) throw new Error("Asset record not found.");
+
+    const now = new Date();
+    const isLockedByOther = asset.lockedByUserId && asset.lockedByUserId !== userId;
+    const isLockExpired = asset.lockedAt && (now.getTime() - new Date(asset.lockedAt).getTime() > 5 * 60 * 1000); // 5 minutes timeout
+
+    if (asset.status === "COMPLETED") {
+      if (asset.lockedByUserId && asset.lockedByUserId !== userId) {
+        throw new Error(`This equipment item is already completed by ${asset.lockedByUser?.name || "another surveyor"}.`);
+      }
+    }
+
+    if (isLockedByOther && !isLockExpired) {
+      throw new Error(`This equipment item is currently locked/being edited by ${asset.lockedByUser?.name || "another surveyor"}.`);
+    }
+
+    return tx[assetType.toLowerCase()].update({
+      where: { id: assetId },
+      data: {
+        status: asset.status === "COMPLETED" ? "COMPLETED" : "IN_PROGRESS",
+        lockedByUserId: userId,
+        lockedAt: now,
+      },
+      include: {
+        lockedByUser: { select: { id: true, name: true, email: true } },
+      }
+    });
   });
 
-  if (!asset) throw new Error("Asset record not found.");
-
-  return asset;
+  return lockedAsset;
 };
 
 const unlockAsset = async (userId, { assetType, assetId }) => {
+  const modelMap = {
+    charger: prisma.charger,
+    panel: prisma.panel,
+    transformer: prisma.transformer,
+    dg: prisma.dG,
+  };
+
+  const model = modelMap[assetType.toLowerCase()];
+  if (!model) throw new Error("Invalid asset type.");
+
+  await prisma.$transaction(async (tx) => {
+    const asset = await tx[assetType.toLowerCase()].findUnique({
+      where: { id: assetId }
+    });
+
+    if (!asset) return;
+
+    if (asset.lockedByUserId === userId && asset.status !== "COMPLETED") {
+      await tx[assetType.toLowerCase()].update({
+        where: { id: assetId },
+        data: {
+          status: "AVAILABLE",
+          lockedByUserId: null,
+          lockedAt: null,
+        }
+      });
+    }
+  });
+
   return true;
 };
 
@@ -377,6 +505,22 @@ const saveAssetData = async (userId, { assetType, assetId, data }) => {
   if (!existingAsset) {
     const err = new Error("Asset record not found.");
     err.statusCode = 404;
+    throw err;
+  }
+
+  // Retrieve survey to check status
+  const survey = await prisma.survey.findUnique({
+    where: { id: existingAsset.surveyId },
+  });
+  if (!survey) {
+    const err = new Error("Associated survey not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status)) {
+    const err = new Error("This survey has been submitted and is locked for editing.");
+    err.statusCode = 400;
     throw err;
   }
 
@@ -504,23 +648,23 @@ const saveAssetData = async (userId, { assetType, assetId, data }) => {
     data: {
       ...cleanData,
       status: "COMPLETED",
-      lockedByUserId: null,
-      lockedAt: null,
+      lockedByUserId: userId,
+      lockedAt: new Date(),
       updatedBy: userId,
     },
   });
 
   // Update survey status to READY_FOR_SUBMISSION if all assets completed (draft -> ready)
-  const survey = await getSurveyById(updatedAsset.surveyId);
-  const allChargersCompleted = survey.chargers.every((c) => c.status === "COMPLETED");
-  const allPanelsCompleted = survey.panels.every((p) => p.status === "COMPLETED");
-  const allTransformersCompleted = survey.transformers.every((t) => t.status === "COMPLETED");
-  const allDGsCompleted = survey.dgs.every((d) => d.status === "COMPLETED");
+  const surveyDetails = await getSurveyById(updatedAsset.surveyId);
+  const allChargersCompleted = surveyDetails.chargers.every((c) => c.status === "COMPLETED");
+  const allPanelsCompleted = surveyDetails.panels.every((p) => p.status === "COMPLETED");
+  const allTransformersCompleted = surveyDetails.transformers.every((t) => t.status === "COMPLETED");
+  const allDGsCompleted = surveyDetails.dgs.every((d) => d.status === "COMPLETED");
 
   if (allChargersCompleted && allPanelsCompleted && allTransformersCompleted && allDGsCompleted) {
-    if (survey.status === "DRAFT" || survey.status === "IN_PROGRESS") {
+    if (surveyDetails.status === "DRAFT" || surveyDetails.status === "IN_PROGRESS") {
       await prisma.survey.update({
-        where: { id: survey.id },
+        where: { id: surveyDetails.id },
         data: { status: "READY_FOR_SUBMISSION" },
       });
     }
@@ -579,38 +723,72 @@ const submitSurvey = async (userId, surveyId) => {
   }
 
   // 3. Update survey status to SUBMITTED and record submittedAt
-  const updated = await prisma.survey.update({
-    where: { id: surveyId },
-    data: {
-      status: "SUBMITTED",
-      submittedAt: new Date(),
-      updatedBy: userId,
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const upd = await tx.survey.update({
+      where: { id: surveyId },
+      data: {
+        status: "SUBMITTED",
+        submittedAt: new Date(),
+        updatedBy: userId,
+      },
+    });
+    await propagateStatus(tx, survey, "SUBMITTED");
+    return upd;
   });
 
   return getSurveyById(updated.id);
+};
+
+const propagateStatus = async (tx, survey, status) => {
+  // Update SurveySite status
+  await tx.surveySite.update({
+    where: { id: survey.surveySiteId },
+    data: { status: status === "APPROVED" ? "COMPLETED" : "IN_PROGRESS" },
+  });
+
+  // Find active assignment
+  const assignment = await tx.surveyAssignment.findFirst({
+    where: {
+      surveySiteId: survey.surveySiteId,
+      surveyorId: survey.createdById,
+      isDeleted: false,
+    },
+  });
+
+  if (assignment) {
+    let assignmentStatus = "IN_PROGRESS";
+    if (status === "APPROVED") {
+      assignmentStatus = "COMPLETED";
+    } else if (status === "SUBMITTED" || status === "UNDER_REVIEW") {
+      assignmentStatus = "SUBMITTED";
+    } else if (status === "DRAFT" || status === "RETURNED") {
+      assignmentStatus = "IN_PROGRESS";
+    }
+
+    await tx.surveyAssignment.update({
+      where: { id: assignment.id },
+      data: { status: assignmentStatus },
+    });
+  }
 };
 
 const reviewSurvey = async (reviewerId, surveyId, { status, reviewRemarks }) => {
   const survey = await prisma.survey.findUnique({ where: { id: surveyId } });
   if (!survey) throw new Error("Survey not found.");
 
-  const updated = await prisma.survey.update({
-    where: { id: surveyId },
-    data: {
-      status, // APPROVED or RETURNED
-      reviewRemarks,
-      reviewedById: reviewerId,
-      reviewedAt: new Date(),
-    },
-  });
-
-  if (status === "APPROVED") {
-    await prisma.surveySite.update({
-      where: { id: survey.surveySiteId },
-      data: { status: "COMPLETED" },
+  const updated = await prisma.$transaction(async (tx) => {
+    const upd = await tx.survey.update({
+      where: { id: surveyId },
+      data: {
+        status, // APPROVED or RETURNED
+        reviewRemarks,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+      },
     });
-  }
+    await propagateStatus(tx, survey, status);
+    return upd;
+  });
 
   return updated;
 };
@@ -636,17 +814,16 @@ const updateSurvey = async (userId, surveyId, data) => {
     }
   });
 
-  const updated = await prisma.survey.update({
-    where: { id: surveyId },
-    data: updateData,
-  });
-
-  if (updated.status === "APPROVED") {
-    await prisma.surveySite.update({
-      where: { id: survey.surveySiteId },
-      data: { status: "COMPLETED" },
+  const updated = await prisma.$transaction(async (tx) => {
+    const upd = await tx.survey.update({
+      where: { id: surveyId },
+      data: updateData,
     });
-  }
+    if (data && data.status) {
+      await propagateStatus(tx, survey, data.status);
+    }
+    return upd;
+  });
 
   return getSurveyById(updated.id);
 };

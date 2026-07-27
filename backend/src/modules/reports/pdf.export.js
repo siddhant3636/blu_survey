@@ -20,7 +20,9 @@ const exportSurveyToPDF = async (survey, res) => {
   // Helper to draw horizontal lines
   const drawLine = () => {
     doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#e2e8f0").strokeWidth(1).stroke();
+    doc.lineWidth(1);
+    doc.strokeColor("#e2e8f0");
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
     doc.moveDown(0.5);
   };
 
@@ -83,16 +85,30 @@ const exportSurveyToPDF = async (survey, res) => {
     try {
       const parsed = typeof rawField === "string" ? JSON.parse(rawField) : rawField;
       if (parsed && parsed.count > 0 && Array.isArray(parsed.types)) {
-        const valid = parsed.types.filter(Boolean);
+        const valid = parsed.types.filter((t) => {
+          if (t && typeof t === "object") {
+            return t.rating || t.brandId;
+          }
+          return Boolean(t);
+        });
         if (valid.length > 0) {
           doc.fontSize(10).fillColor("#4a5568").text(`${label} Breakers:`, { bold: true });
           valid.forEach((val, index) => {
-            doc.fontSize(9).fillColor("#2d3748").text(`  • Breaker #${index + 1}: Rating / Type: ${val}`);
+            let rating = "";
+            let brand = "";
+            if (val && typeof val === "object") {
+              rating = val.rating || "N/A";
+              brand = val.brandName || "";
+            } else {
+              rating = String(val || "N/A");
+            }
+            const brandText = brand ? ` | Brand: ${brand}` : "";
+            doc.fontSize(9).fillColor("#2d3748").text(`  • Breaker #${index + 1}: Rating / Type: ${rating}${brandText}`);
           });
           doc.moveDown(0.2);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // ====================================================
@@ -151,7 +167,7 @@ const exportSurveyToPDF = async (survey, res) => {
   doc.text(`Total Configured Electrical Panels: ${survey.totalPanels}`);
   doc.text(`Total Configured Distribution Transformers: ${survey.totalTransformers}`);
   doc.text(`Total Configured DG Sets: ${survey.totalDG}`);
-  
+
   doc.addPage();
 
   // ====================================================
@@ -223,7 +239,42 @@ const exportSurveyToPDF = async (survey, res) => {
       doc.text(`Panel Board Tag Name: ${p.name || "N/A"}`);
       doc.text(`Capacity: ${p.capacity || "N/A"}`);
       doc.text(`Incoming Source: ${p.incomingSource || "N/A"}`);
-      doc.text(`Breaker Make / Rating: ${p.breakerRating || "N/A"}`);
+      let parsedSections = null;
+      try {
+        if (p.breakerRating && p.breakerRating.trim().startsWith("{")) {
+          parsedSections = JSON.parse(p.breakerRating.trim());
+        }
+      } catch (err) {
+        // Not a JSON
+      }
+
+      if (parsedSections) {
+        doc.text("Breaker Panels / Nested Data:", { bold: true });
+        const sectionLabels = {
+          mainDistribution: "Main Distribution Charger Panel",
+          fastSlow: "Fast + Slow Charger Panel",
+          fast: "Fast Charger Panel",
+          slow: "Slow Charger Panel"
+        };
+        Object.keys(sectionLabels).forEach((secKey) => {
+          const panelsList = parsedSections[secKey] || [];
+          if (panelsList.length > 0) {
+            doc.text(`  • ${sectionLabels[secKey]}:`, { bold: true });
+            panelsList.forEach((panel, pIdx) => {
+              doc.text(`      - Panel #${pIdx + 1}: Name: "${panel.name || "N/A"}"`, { bold: true });
+              if (panel.mccb4p && panel.mccb4p.length > 0) {
+                panel.mccb4p.forEach((mccb, mIdx) => {
+                  doc.text(`          * MCCB 4P #${mIdx + 1}: Rating: ${mccb.rating || "N/A"}, Brand: ${mccb.brand || "N/A"}`);
+                });
+              } else {
+                doc.text(`          * No MCCB 4P breakers configured.`);
+              }
+            });
+          }
+        });
+      } else {
+        doc.text(`Breaker Make / Rating: ${p.breakerRating || "N/A"}`);
+      }
       doc.text(`Cable Size: ${p.cableSize || "N/A"}`);
       doc.text(`GPS Location: ${p.latitude ? `${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}` : "N/A"}`);
       doc.moveDown(0.4);

@@ -20,7 +20,6 @@ export const useUpload = (uploadUrl) => {
     try {
       const response = await axios.post(uploadUrl || "/api/v1/photos", formData, {
         headers: {
-          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         onUploadProgress: (progressEvent) => {

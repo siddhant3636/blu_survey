@@ -16,9 +16,9 @@ const getPhotosBySurvey = async (surveyId) => {
 const addPhoto = async (surveyId, categoryId, file, coordinates = {}) => {
   const survey = await prisma.survey.findUnique({ where: { id: surveyId } });
   if (!survey) throw new Error("Survey not found.");
-  if (survey.status === "SUBMITTED" || survey.status === "APPROVED") {
-    // Prevent modification if survey is already submitted or approved
-    throw new Error("Cannot add photos to a submitted or approved survey.");
+  if (["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status)) {
+    // Prevent modification if survey is already submitted, under review, or approved
+    throw new Error("Cannot add photos to a submitted, under review, or approved survey.");
   }
 
   let targetCategory = null;
@@ -106,7 +106,7 @@ const addPhoto = async (surveyId, categoryId, file, coordinates = {}) => {
     if (fs.existsSync(tempPath)) {
       try {
         fs.unlinkSync(tempPath);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 };
@@ -125,8 +125,8 @@ const removePhoto = async (id) => {
   if (!photo) throw new Error("Photo not found.");
 
   const survey = await prisma.survey.findUnique({ where: { id: photo.surveyId } });
-  if (survey && (survey.status === "SUBMITTED" || survey.status === "APPROVED")) {
-    throw new Error("Cannot delete photos from a submitted or approved survey.");
+  if (survey && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status)) {
+    throw new Error("Cannot delete photos from a submitted, under review, or approved survey.");
   }
 
   // Delete physical file from storage

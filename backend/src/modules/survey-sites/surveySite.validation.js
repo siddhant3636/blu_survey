@@ -8,6 +8,7 @@ const createSiteSchema = Joi.object({
   latitude: Joi.number().min(-90).max(90).optional().allow(null),
   longitude: Joi.number().min(-180).max(180).optional().allow(null),
   status: Joi.string().valid("PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED").optional(),
+  surveyorIds: Joi.array().items(Joi.string()).optional(),
 });
 
 const updateSiteSchema = Joi.object({
@@ -15,9 +16,8 @@ const updateSiteSchema = Joi.object({
   concessionaire: Joi.string().allow("", null).optional(),
   landOwningAgency: Joi.string().allow("", null).optional(),
   address: Joi.string().optional(),
-  latitude: Joi.number().min(-90).max(90).optional().allow(null),
-  longitude: Joi.number().min(-180).max(180).optional().allow(null),
   status: Joi.string().valid("PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED").optional(),
+  surveyorIds: Joi.array().items(Joi.string()).optional(),
 });
 
 module.exports = {

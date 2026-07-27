@@ -643,8 +643,15 @@ const FormsList = () => {
               const dateStr = s.submittedAt ? new Date(s.submittedAt).toLocaleDateString() : s.createdAt ? new Date(s.createdAt).toLocaleDateString() : "N/A";
               const totalAssetsCount = (s.chargers?.length || 0) + (s.panels?.length || 0) + (s.transformers?.length || 0) + (s.dgs?.length || 0);
 
+              const isReturned = s.status === "RETURNED";
               return (
-                <tr key={s.id}>
+                <tr
+                  key={s.id}
+                  style={isReturned ? {
+                    backgroundColor: "rgba(239, 68, 68, 0.04)",
+                    borderLeft: "4px solid #ef4444"
+                  } : {}}
+                >
                   <td><strong>{siteName}</strong></td>
                   <td>{surveyor}</td>
                   <td>{dateStr}</td>

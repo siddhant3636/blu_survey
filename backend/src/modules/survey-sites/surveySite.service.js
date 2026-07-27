@@ -29,14 +29,45 @@ const getAllSites = async (user) => {
 
   const sites = await prisma.surveySite.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    include: {
+      assignments: {
+        where: { isDeleted: false },
+        include: {
+          surveyor: {
+            select: { id: true, name: true, email: true, role: true }
+          }
+        }
+      }
+    },
   });
+
+  const getLatestAssignmentTime = (site) => {
+    const activeAssignments = site.assignments || [];
+    if (activeAssignments.length === 0) {
+      return new Date(site.createdAt).getTime();
+    }
+    const dates = activeAssignments.map((a) => new Date(a.assignedDate).getTime());
+    return Math.max(...dates);
+  };
+
+  sites.sort((a, b) => getLatestAssignmentTime(b) - getLatestAssignmentTime(a));
+
   return sites.map(formatSurveySite);
 };
 
 const getSiteById = async (id) => {
   const site = await prisma.surveySite.findFirst({
     where: { id, isDeleted: false },
+    include: {
+      assignments: {
+        where: { isDeleted: false },
+        include: {
+          surveyor: {
+            select: { id: true, name: true, email: true, role: true }
+          }
+        }
+      }
+    },
   });
   if (!site) throw new Error("Survey site not found.");
   return formatSurveySite(site);
@@ -54,13 +85,78 @@ const createSite = async (data) => {
   return formatSurveySite(site);
 };
 
-const updateSite = async (id, data) => {
+const updateSite = async (id, data, user) => {
   const existing = await getSiteById(id);
+  const { surveyorIds, ...siteData } = data;
+
+  let newStatus = siteData.status || existing.status;
+  if (surveyorIds !== undefined) {
+    if (surveyorIds.length > 0 && newStatus === "PENDING") {
+      newStatus = "ASSIGNED";
+    } else if (surveyorIds.length === 0 && newStatus === "ASSIGNED") {
+      newStatus = "PENDING";
+    }
+  }
+
   const site = await prisma.surveySite.update({
     where: { id: existing.id },
-    data,
+    data: {
+      ...siteData,
+      status: newStatus
+    },
   });
-  return formatSurveySite(site);
+
+  if (surveyorIds !== undefined) {
+    const activeAssignments = await prisma.surveyAssignment.findMany({
+      where: { surveySiteId: id, isDeleted: false }
+    });
+    const activeSurveyorIds = activeAssignments.map((a) => a.surveyorId);
+
+    const toRemove = activeSurveyorIds.filter((sId) => !surveyorIds.includes(sId));
+    if (toRemove.length > 0) {
+      await prisma.surveyAssignment.updateMany({
+        where: {
+          surveySiteId: id,
+          surveyorId: { in: toRemove }
+        },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date()
+        }
+      });
+    }
+
+    for (const sId of surveyorIds) {
+      const existingAssignment = await prisma.surveyAssignment.findFirst({
+        where: { surveySiteId: id, surveyorId: sId }
+      });
+
+      if (existingAssignment) {
+        if (existingAssignment.isDeleted) {
+          await prisma.surveyAssignment.update({
+            where: { id: existingAssignment.id },
+            data: {
+              isDeleted: false,
+              deletedAt: null,
+              status: "ASSIGNED",
+              assignedDate: new Date(),
+              createdBy: user?.id || null
+            }
+          });
+        }
+      } else {
+        await prisma.surveyAssignment.create({
+          data: {
+            surveySiteId: id,
+            surveyorId: sId,
+            createdBy: user?.id || null
+          }
+        });
+      }
+    }
+  }
+
+  return getSiteById(id);
 };
 
 const deleteSite = async (id) => {

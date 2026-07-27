@@ -33,7 +33,6 @@ import UserProfile from "../pages/users/UserProfile";
 import SiteList from "../pages/survey-sites/SiteList";
 import AddSite from "../pages/survey-sites/AddSite";
 import EditSite from "../pages/survey-sites/EditSite";
-import SiteDetails from "../pages/survey-sites/SiteDetails";
 import AssignSite from "../pages/survey-sites/AssignSite";
 
 // Surveys
@@ -204,18 +203,7 @@ const AppRoutes = () => {
             </PrivateRoute>
           }
         />
-        <Route
-          path="/survey-sites/:id"
-          element={
-            <PrivateRoute>
-              <SubAdminRoute>
-                <RoleBasedLayout>
-                  <SiteDetails />
-                </RoleBasedLayout>
-              </SubAdminRoute>
-            </PrivateRoute>
-          }
-        />
+
         <Route
           path="/survey-sites/assign"
           element={
