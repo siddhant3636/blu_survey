@@ -93,9 +93,10 @@ const FormsList = () => {
 
       const surveyList = surveysRes.data?.data?.surveys || surveysRes.data?.surveys || [];
       const siteList = sitesRes.data?.data?.sites || sitesRes.data?.sites || [];
+      const uniqueSites = Array.from(new Map(siteList.map(s => [s.id, s])).values());
       
       setSurveys(surveyList);
-      setSites(siteList);
+      setSites(uniqueSites);
       setManufacturers(mfgRes.data?.manufacturers || []);
       setConnectors(connRes.data?.connectors || []);
 

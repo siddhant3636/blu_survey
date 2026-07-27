@@ -174,3 +174,6 @@
 [2026-07-25 11:02:18:218] [[32minfo[39m]: [32mDatabase connection established successfully.[39m
 [2026-07-25 11:02:18:218] [[32minfo[39m]: [32mServer is running in development mode on port 5000[39m
 [2026-07-25 11:18:20:1820] [[32minfo[39m]: [32mReceived shutdown signal. Closing server...[39m
+[2026-07-27 05:04:50:450] [[32minfo[39m]: [32mDatabase connection established successfully.[39m
+[2026-07-27 05:04:50:450] [[32minfo[39m]: [32mServer is running in development mode on port 5000[39m
+[2026-07-27 05:23:22:2322] [[32minfo[39m]: [32mReceived shutdown signal. Closing server...[39m

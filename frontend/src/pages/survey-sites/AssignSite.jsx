@@ -23,9 +23,14 @@ const AssignSite = () => {
           siteService.getSites(),
           userService.getUsers(),
         ]);
-        setSites(sitesRes.data.sites.filter((s) => s.status !== "COMPLETED"));
+        const siteList = sitesRes.data?.data?.sites || sitesRes.data?.sites || [];
+        const uncompleted = siteList.filter((s) => s.status !== "COMPLETED");
+        const uniqueSites = Array.from(new Map(uncompleted.map(s => [s.id, s])).values());
+        setSites(uniqueSites);
+
+        const usersList = usersRes.data?.data?.users || usersRes.data?.users || [];
         setSurveyors(
-          usersRes.data.users.filter(
+          usersList.filter(
             (u) => u.role === "SURVEY_PERSON" || u.role === "SURVEYOR"
           )
         );

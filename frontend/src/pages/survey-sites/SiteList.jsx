@@ -15,7 +15,8 @@ const SiteList = () => {
       try {
         const res = await siteService.getSites();
         const siteList = res.data?.data?.sites || res.data?.sites || [];
-        setSites(siteList);
+        const uniqueSites = Array.from(new Map(siteList.map(s => [s.id, s])).values());
+        setSites(uniqueSites);
       } catch (err) {
         console.error(err);
       } finally {
