@@ -88,6 +88,7 @@ const PanelSurvey = () => {
   // Panel Photos & Camera state
   const [panelPhotos, setPanelPhotos] = useState([]);
   const [surveyStatus, setSurveyStatus] = useState("DRAFT");
+  const [assetStatus, setAssetStatus] = useState("AVAILABLE");
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
 
   const fetchPhotos = async () => {
@@ -170,6 +171,7 @@ const PanelSurvey = () => {
         const targetAsset = (sData?.panels || []).find((p) => p.id === assetId);
         if (targetAsset) {
           setAssetIndex(targetAsset.assetIndex);
+          setAssetStatus(targetAsset.status || "AVAILABLE");
           
           let parsedRating = targetAsset.breakerRating || "";
           let parsedSections = {
@@ -603,7 +605,8 @@ const PanelSurvey = () => {
     }
   };
 
-  const isReadOnly = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+  const isReadOnly = 
+    (!["ADMIN", "SUB_ADMIN"].includes(user?.role) && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus));
 
   if (loading) return <Loader />;
 

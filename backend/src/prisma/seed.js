@@ -62,6 +62,31 @@ async function main() {
         { name: "Exicom Harmony 120kW DC", powerRating: "120kW" },
       ],
     },
+    { name: "Schneider Electric", models: [] },
+    { name: "Siemens", models: [] },
+    { name: "Servotech Power Systems", models: [] },
+    { name: "Okaya EV", models: [] },
+    { name: "Tirex EV", models: [] },
+    { name: "Statiq", models: [] },
+    { name: "ChargeZone", models: [] },
+    { name: "Tata Power EZ Charge", models: [] },
+    { name: "Livguard", models: [] },
+    { name: "EVRE", models: [] },
+    { name: "Quench Chargers", models: [] },
+    { name: "Numocity", models: [] },
+    { name: "VNT", models: [] },
+    { name: "Ryze", models: [] },
+    { name: "Mindra", models: [] },
+    { name: "Anup EVCQNNECT", models: [] },
+    { name: "Conquerent", models: [] },
+    { name: "GLIDA", models: [] },
+    { name: "Pulse Energy", models: [] },
+    { name: "Etrio", models: [] },
+    { name: "Magenta ChargeGrid", models: [] },
+    { name: "Kazam", models: [] },
+    { name: "Relux Electric", models: [] },
+    { name: "PlugNGo", models: [] },
+    { name: "Livwize", models: [] },
   ];
 
   for (const mfg of manufacturers) {
@@ -123,6 +148,40 @@ async function main() {
     {
       name: "MCB MAKE",
       values: ["L&T", "Schneider Electric", "Havells", "ABB", "C&S", "Polycab", "Hager", "Eaton", "Anchor", "Legrand", "Siemens", "Finolex", "CHINT", "Mitsubishi Electric", "Fuji Electric"]
+    },
+    {
+      name: "Concessionaire",
+      values: [
+        "Blu Smart Pvt Ltd.",
+        "BFPL",
+        "BCPL",
+        "BCPL-DTL Site",
+        "BluSmart Mobility Pvt Ltd",
+        "Tata Power EV Charging Solutions",
+        "Jio-bp Pulse Hub",
+        "BluSmart Charge Network",
+        "Delta Electronics Charging Infrastructure",
+        "Exicom Power Solutions",
+        "ABB E-mobility India",
+        "Tata Power EZ Charge"
+      ]
+    },
+    {
+      name: "Land Owning Agency",
+      values: [
+        "DMRC",
+        "DTC",
+        "DSIIDC",
+        "TPDDL",
+        "BYPL",
+        "NDMC",
+        "HSIIDC",
+        "DIAL",
+        "NOIDA",
+        "MCG",
+        "MCD",
+        "DDA"
+      ]
     }
   ];
 
@@ -285,12 +344,12 @@ async function main() {
 
   const createdSitesMap = {};
   for (const siteData of sampleSites) {
-    const existing = await prisma.surveySite.findFirst({ where: { name: siteData.name } });
-    if (existing) {
+    const existingBySiteId = siteData.siteId ? await prisma.surveySite.findUnique({ where: { siteId: siteData.siteId } }) : null;
+    if (existingBySiteId) {
       const updated = await prisma.surveySite.update({
-        where: { id: existing.id },
+        where: { id: existingBySiteId.id },
         data: {
-          siteId: siteData.siteId,
+          name: siteData.name,
           concessionaire: siteData.concessionaire,
           landOwningAgency: siteData.landOwningAgency,
           address: siteData.address,
@@ -301,11 +360,86 @@ async function main() {
       });
       createdSitesMap[siteData.siteId] = updated;
     } else {
-      const created = await prisma.surveySite.create({ data: siteData });
-      createdSitesMap[siteData.siteId] = created;
+      const existingByName = await prisma.surveySite.findFirst({ where: { name: siteData.name } });
+      if (existingByName) {
+        const updated = await prisma.surveySite.update({
+          where: { id: existingByName.id },
+          data: {
+            siteId: siteData.siteId,
+            concessionaire: siteData.concessionaire,
+            landOwningAgency: siteData.landOwningAgency,
+            address: siteData.address,
+            latitude: siteData.latitude,
+            longitude: siteData.longitude,
+            status: siteData.status,
+          },
+        });
+        createdSitesMap[siteData.siteId] = updated;
+      } else {
+        const created = await prisma.surveySite.create({ data: siteData });
+        createdSitesMap[siteData.siteId] = created;
+      }
     }
   }
   console.log(`Seeded ${sampleSites.length} Sample Survey Sites`);
+
+  // Seed OPS, NOPS, and HUB sites from JSON
+  const defaultSitesData = require("./formatted_seeds.json");
+  const allDefaultSites = [
+    ...defaultSitesData.opsSites,
+    ...defaultSitesData.nopsSites,
+    ...defaultSitesData.hubSites,
+  ];
+
+  for (const siteData of allDefaultSites) {
+    const existingBySiteId = siteData.siteId ? await prisma.surveySite.findUnique({ where: { siteId: siteData.siteId } }) : null;
+    
+    if (existingBySiteId) {
+      const updated = await prisma.surveySite.update({
+        where: { id: existingBySiteId.id },
+        data: {
+          name: siteData.name,
+          concessionaire: siteData.concessionaire,
+          landOwningAgency: siteData.landOwningAgency,
+          address: siteData.address,
+          latitude: siteData.latitude !== null ? siteData.latitude : existingBySiteId.latitude,
+          longitude: siteData.longitude !== null ? siteData.longitude : existingBySiteId.longitude,
+        },
+      });
+      createdSitesMap[siteData.siteId] = updated;
+    } else {
+      const existingByName = await prisma.surveySite.findFirst({ where: { name: siteData.name } });
+      if (existingByName) {
+        const updated = await prisma.surveySite.update({
+          where: { id: existingByName.id },
+          data: {
+            siteId: siteData.siteId,
+            concessionaire: siteData.concessionaire,
+            landOwningAgency: siteData.landOwningAgency,
+            address: siteData.address,
+            latitude: siteData.latitude !== null ? siteData.latitude : existingByName.latitude,
+            longitude: siteData.longitude !== null ? siteData.longitude : existingByName.longitude,
+          },
+        });
+        createdSitesMap[siteData.siteId] = updated;
+      } else {
+        const created = await prisma.surveySite.create({
+          data: {
+            siteId: siteData.siteId,
+            name: siteData.name,
+            concessionaire: siteData.concessionaire,
+            landOwningAgency: siteData.landOwningAgency,
+            address: siteData.address,
+            latitude: siteData.latitude,
+            longitude: siteData.longitude,
+            status: siteData.status || "PENDING",
+          },
+        });
+        createdSitesMap[siteData.siteId] = created;
+      }
+    }
+  }
+  console.log(`Seeded ${allDefaultSites.length} Default Operational, Non-Operational and Hub Survey Sites`);
 
   // Assign sites to surveyors
   const surveyor1 = await prisma.user.findUnique({ where: { email: "surveyor@blusmart.com" } });

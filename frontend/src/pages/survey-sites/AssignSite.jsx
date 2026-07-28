@@ -2,19 +2,32 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import siteService from "../../services/site.service";
 import userService from "../../services/user.service";
-import Select from "../../components/common/Select";
+import RegexSearchSelect from "../../components/common/RegexSearchSelect";
 import Button from "../../components/common/Button";
 import Card from "../../components/common/Card";
 import Loader from "../../components/common/Loader";
+import { Search, X } from "lucide-react";
 
 const AssignSite = () => {
   const navigate = useNavigate();
   const [sites, setSites] = useState([]);
   const [surveyors, setSurveyors] = useState([]);
+  const [surveyorSearchQuery, setSurveyorSearchQuery] = useState("");
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [selectedSurveyorIds, setSelectedSurveyorIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const filteredSurveyors = surveyors.filter((s) => {
+    if (!surveyorSearchQuery) return true;
+    try {
+      const regex = new RegExp(surveyorSearchQuery, "i");
+      return regex.test(s.name) || regex.test(s.email);
+    } catch (err) {
+      const q = surveyorSearchQuery.toLowerCase();
+      return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q);
+    }
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -23,14 +36,9 @@ const AssignSite = () => {
           siteService.getSites(),
           userService.getUsers(),
         ]);
-        const siteList = sitesRes.data?.data?.sites || sitesRes.data?.sites || [];
-        const uncompleted = siteList.filter((s) => s.status !== "COMPLETED");
-        const uniqueSites = Array.from(new Map(uncompleted.map(s => [s.id, s])).values());
-        setSites(uniqueSites);
-
-        const usersList = usersRes.data?.data?.users || usersRes.data?.users || [];
+        setSites(sitesRes.data.sites.filter((s) => s.status !== "COMPLETED"));
         setSurveyors(
-          usersList.filter(
+          usersRes.data.users.filter(
             (u) => u.role === "SURVEY_PERSON" || u.role === "SURVEYOR"
           )
         );
@@ -91,12 +99,17 @@ const AssignSite = () => {
       )}
       <Card>
         <form onSubmit={handleSubmit}>
-          <Select
+          <RegexSearchSelect
             label="Select Candidate Survey Site"
             name="surveySiteId"
             value={selectedSiteId}
             onChange={(e) => setSelectedSiteId(e.target.value)}
-            options={sites.map((s) => ({ value: s.id, label: `${s.name} (${s.concessionaire || 'N/A'})` }))}
+            options={sites.map((s) => ({
+              value: s.id,
+              label: s.siteId ? `${s.name} (${s.siteId})` : s.name,
+              siteId: s.siteId,
+              concessionaire: s.concessionaire
+            }))}
             required
           />
 
@@ -104,6 +117,41 @@ const AssignSite = () => {
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "14px" }}>
               Assign Survey Persons (Select One or Multiple)
             </label>
+            {surveyors.length > 0 && (
+              <div style={{ position: "relative", marginBottom: "10px" }}>
+                <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)", display: "flex", alignItems: "center" }}>
+                  <Search size={16} style={{ opacity: 0.5 }} />
+                </span>
+                <input
+                  type="text"
+                  value={surveyorSearchQuery}
+                  onChange={(e) => setSurveyorSearchQuery(e.target.value)}
+                  placeholder="Search surveyors (regex supported)..."
+                  className="form-control"
+                  style={{ paddingLeft: "36px", paddingRight: "36px" }}
+                />
+                {surveyorSearchQuery && (
+                  <span
+                    onClick={() => setSurveyorSearchQuery("")}
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      color: "var(--text-secondary)",
+                      opacity: 0.6
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = 1)}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = 0.6)}
+                  >
+                    <X size={16} />
+                  </span>
+                )}
+              </div>
+            )}
             {surveyors.length === 0 ? (
               <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>No active Survey Persons found in system.</p>
             ) : (
@@ -117,16 +165,22 @@ const AssignSite = () => {
                 borderRadius: "var(--border-radius)",
                 padding: "12px",
               }}>
-                {surveyors.map((s) => (
-                  <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px" }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedSurveyorIds.includes(s.id)}
-                      onChange={() => handleSurveyorToggle(s.id)}
-                    />
-                    <span><strong>{s.name}</strong> ({s.email})</span>
-                  </label>
-                ))}
+                {filteredSurveyors.length === 0 ? (
+                  <p style={{ fontSize: "14px", color: "var(--text-secondary)", textAlign: "center", padding: "10px" }}>
+                    No matching surveyors found.
+                  </p>
+                ) : (
+                  filteredSurveyors.map((s) => (
+                    <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px" }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSurveyorIds.includes(s.id)}
+                        onChange={() => handleSurveyorToggle(s.id)}
+                      />
+                      <span><strong>{s.name}</strong> ({s.email})</span>
+                    </label>
+                  ))
+                )}
               </div>
             )}
           </div>

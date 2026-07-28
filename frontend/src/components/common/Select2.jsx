@@ -69,8 +69,26 @@ const Select2 = ({
 
   // Filter options based on search query
   const filteredOptions = options.filter((opt) => {
-    const labelStr = (opt.label || opt.value || "").toString().toLowerCase();
-    return labelStr.includes(searchQuery.toLowerCase());
+    if (!searchQuery) return true;
+    try {
+      const regex = new RegExp(searchQuery, "i");
+      return (
+        regex.test(opt.label) ||
+        (opt.value && regex.test(String(opt.value))) ||
+        (opt.siteId && regex.test(String(opt.siteId))) ||
+        (opt.concessionaire && regex.test(String(opt.concessionaire)))
+      );
+    } catch (err) {
+      const q = searchQuery.toLowerCase();
+      const labelStr = (opt.label || opt.value || "").toString().toLowerCase();
+      const siteIdStr = (opt.siteId || "").toString().toLowerCase();
+      const concessionaireStr = (opt.concessionaire || "").toString().toLowerCase();
+      return (
+        labelStr.includes(q) ||
+        siteIdStr.includes(q) ||
+        concessionaireStr.includes(q)
+      );
+    }
   });
 
   const selectedOption = options.find((opt) => String(opt.value) === String(value));

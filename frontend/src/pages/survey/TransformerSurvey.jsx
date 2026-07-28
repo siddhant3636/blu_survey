@@ -44,6 +44,7 @@ const TransformerSurvey = () => {
   // Transformer Photos & Camera state
   const [transformerPhotos, setTransformerPhotos] = useState([]);
   const [surveyStatus, setSurveyStatus] = useState("DRAFT");
+  const [assetStatus, setAssetStatus] = useState("AVAILABLE");
   const [activePhotoSection, setActivePhotoSection] = useState(null);
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
 
@@ -109,6 +110,7 @@ const TransformerSurvey = () => {
         const targetAsset = (sData?.transformers || []).find((t) => t.id === assetId);
         if (targetAsset) {
           setAssetIndex(targetAsset.assetIndex);
+          setAssetStatus(targetAsset.status || "AVAILABLE");
           setForm({
             capacityKVA: targetAsset.capacityKVA !== null && targetAsset.capacityKVA !== undefined ? String(targetAsset.capacityKVA) : "",
             voltageRatio: targetAsset.voltageRatio || "",
@@ -238,7 +240,8 @@ const TransformerSurvey = () => {
     }
   };
 
-  const isReadOnly = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+  const isReadOnly = 
+    (!["ADMIN", "SUB_ADMIN"].includes(user?.role) && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus));
 
   if (loading) return <Loader />;
 

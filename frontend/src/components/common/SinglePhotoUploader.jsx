@@ -76,6 +76,10 @@ const SinglePhotoUploader = ({
     setImgLoadFailed(false);
   }, [surveyId, categoryId]);
 
+  useEffect(() => {
+    setImgLoadFailed(false);
+  }, [matchedPhoto]);
+
   // Handles cleanup of object URLs if needed
   useEffect(() => {
     return () => {

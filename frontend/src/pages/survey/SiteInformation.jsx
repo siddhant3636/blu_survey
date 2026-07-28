@@ -21,6 +21,7 @@ const SiteInformation = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [lockedInProgressBy, setLockedInProgressBy] = useState(null);
 
   // Reduction Confirmation Modal State
   const [reductionModal, setReductionModal] = useState({
@@ -68,9 +69,18 @@ const SiteInformation = () => {
           const s = sRes.data.survey;
           setExistingSurvey(s);
           
-          const isLockedByOther = s.firstPageLocked && s.firstPageLockedByUserId !== user?.id;
+          const isAdmin = user?.role === "ADMIN" || user?.role === "SUB_ADMIN";
+          const isLockedByOther = s.firstPageLockedByUserId && s.firstPageLockedByUserId !== user?.id;
+          const isLockedByOtherInProgress = isLockedByOther && !s.firstPageLocked && !isAdmin;
+          const isLockedByOtherCompleted = isLockedByOther && s.firstPageLocked;
           const isSurveyLocked = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(s.status);
-          const isReadOnly = isLockedByOther || isSurveyLocked;
+          const isReadOnly = !isAdmin && (isLockedByOtherCompleted || isSurveyLocked);
+
+          if (isLockedByOtherInProgress) {
+            setLockedInProgressBy(s.firstPageLockedBy || "another surveyor");
+          } else {
+            setLockedInProgressBy(null);
+          }
 
           // Only overwrite form inputs if the page becomes read-only
           if (isReadOnly) {
@@ -139,6 +149,14 @@ const SiteInformation = () => {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    if (name === "accessPersonMobile") {
+      const val = value.replace(/\D/g, "");
+      setForm((prev) => ({
+        ...prev,
+        [name]: val,
+      }));
+      return;
+    }
     if (type === "number" || ["totalChargers", "totalPanels", "totalTransformers", "totalDG"].includes(name)) {
       e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
     }
@@ -207,9 +225,11 @@ const SiteInformation = () => {
       validationErrors.push("Pincode must be a valid 6-digit Indian pincode");
     }
     if (form.accessPersonMobile && form.accessPersonMobile.toString().trim()) {
-      const cleanedMobile = form.accessPersonMobile.toString().replace(/[\s-]/g, "");
-      if (!/^(\+91)?[6-9]\d{9}$/.test(cleanedMobile)) {
-        validationErrors.push("Access Person Mobile must be a valid 10-digit Indian mobile number");
+      const mobileStr = form.accessPersonMobile.toString().trim();
+      if (!/^\d+$/.test(mobileStr)) {
+        validationErrors.push("Access Person Mobile must contain numbers only");
+      } else if (!(/^[6-9]\d{9}$/.test(mobileStr) || /^91[6-9]\d{9}$/.test(mobileStr))) {
+        validationErrors.push("Access Person Mobile must be a valid Indian mobile number (e.g., 9876543210)");
       }
     }
     if (form.latitude !== null && form.latitude !== "" && form.latitude !== undefined) {
@@ -374,9 +394,32 @@ const SiteInformation = () => {
   if (loading) return <Loader />;
   if (!assignment) return <p style={{ padding: "40px", textAlign: "center" }}>Assignment record not found.</p>;
 
-  const isLockedByOther = existingSurvey && existingSurvey.firstPageLocked && existingSurvey.firstPageLockedByUserId !== user?.id;
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUB_ADMIN";
+  const isLockedByOther = existingSurvey && existingSurvey.firstPageLockedByUserId && existingSurvey.firstPageLockedByUserId !== user?.id;
+  const isLockedByOtherInProgress = isLockedByOther && !existingSurvey.firstPageLocked && !isAdmin;
+  const isLockedByOtherCompleted = isLockedByOther && existingSurvey.firstPageLocked;
   const isSurveyLocked = existingSurvey && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(existingSurvey.status);
-  const isReadOnly = isLockedByOther || isSurveyLocked;
+  const isReadOnly = !isAdmin && (isLockedByOtherCompleted || isSurveyLocked);
+
+  if (isLockedByOtherInProgress) {
+    return (
+      <div style={{ maxWidth: "500px", margin: "80px auto", textAlign: "center" }}>
+        <Card style={{ border: "1px solid var(--primary)", padding: "24px" }}>
+          <div style={{ fontSize: "40px", marginBottom: "16px" }}>🔒</div>
+          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "var(--primary)", marginBottom: "12px" }}>First Page In Progress</h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "24px" }}>
+            This site-level form is currently being completed by <strong>{existingSurvey?.firstPageLockedBy || "another surveyor"}</strong>.
+          </p>
+          <p style={{ color: "var(--text-secondary)", fontSize: "13px", fontStyle: "italic", marginBottom: "24px" }}>
+            You will be able to continue the survey once the first page is saved.
+          </p>
+          <Button variant="secondary" onClick={() => navigate("/survey/assigned")}>
+            Back to Workspace
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto" }}>
@@ -445,7 +488,21 @@ const SiteInformation = () => {
             )}
 
             <Input label="Site Access Person Name" name="accessPersonName" value={form.accessPersonName} onChange={handleChange} placeholder="e.g. Security Supervisor" disabled={isReadOnly} />
-            <Input label="Access Person Mobile" name="accessPersonMobile" value={form.accessPersonMobile} onChange={handleChange} placeholder="e.g. +91 9876543210" disabled={isReadOnly} />
+            <Input
+              label="Access Person Mobile"
+              name="accessPersonMobile"
+              value={form.accessPersonMobile}
+              onChange={handleChange}
+              onKeyPress={(e) => {
+                if (!/[0-9]/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="e.g. 9876543210"
+              disabled={isReadOnly}
+            />
 
             <Select
               label="Parking Area Type"
@@ -490,7 +547,7 @@ const SiteInformation = () => {
             </Button>
             {isReadOnly ? (
               <Button type="button" onClick={() => navigate(`/survey/assets/${existingSurvey.id}`)}>
-                Next →
+                {existingSurvey?.firstPageLockedByUserId && existingSurvey.firstPageLockedByUserId !== user?.id ? "Continue Form →" : "Next →"}
               </Button>
             ) : (
               <Button type="submit" disabled={submitting}>

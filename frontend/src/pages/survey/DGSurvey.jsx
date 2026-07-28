@@ -43,6 +43,7 @@ const DGSurvey = () => {
   // DG Photos & Camera state
   const [dgPhotos, setDgPhotos] = useState([]);
   const [surveyStatus, setSurveyStatus] = useState("DRAFT");
+  const [assetStatus, setAssetStatus] = useState("AVAILABLE");
   const [activePhotoSection, setActivePhotoSection] = useState(null);
   const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null });
 
@@ -108,6 +109,7 @@ const DGSurvey = () => {
         const targetAsset = (sData?.dgs || []).find((d) => d.id === assetId);
         if (targetAsset) {
           setAssetIndex(targetAsset.assetIndex);
+          setAssetStatus(targetAsset.status || "AVAILABLE");
           setForm({
             capacityKVA: targetAsset.capacityKVA !== null && targetAsset.capacityKVA !== undefined ? String(targetAsset.capacityKVA) : "",
             fuelTankLitres: targetAsset.fuelTankLitres !== null && targetAsset.fuelTankLitres !== undefined ? String(targetAsset.fuelTankLitres) : "",
@@ -232,7 +234,8 @@ const DGSurvey = () => {
     }
   };
 
-  const isReadOnly = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+  const isReadOnly = 
+    (!["ADMIN", "SUB_ADMIN"].includes(user?.role) && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus));
 
   if (loading) return <Loader />;
 

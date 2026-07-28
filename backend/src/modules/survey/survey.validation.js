@@ -51,12 +51,12 @@ const step1Schema = Joi.object({
     .trim()
     .allow("", null)
     .optional()
+    .pattern(/^\d+$/)
     .custom((value, helpers) => {
       if (!value) return value;
-      const cleaned = value.replace(/[\s-]/g, "");
-      const isIndianMobile = /^(\+91)?[6-9]\d{9}$/.test(cleaned);
+      const isIndianMobile = /^[6-9]\d{9}$/.test(value) || /^91[6-9]\d{9}$/.test(value);
       if (!isIndianMobile) {
-        return helpers.message("Access Person Mobile must be a valid 10-digit Indian mobile number");
+        return helpers.message("Access Person Mobile must be a valid Indian mobile number (digits only, e.g., 9876543210)");
       }
       return value;
     }),

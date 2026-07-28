@@ -62,10 +62,23 @@ const deleteSite = async (req, res, next) => {
   }
 };
 
+const bulkUploadSites = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return apiResponse.badRequest(res, "Please upload an Excel file.");
+    }
+    const result = await surveySiteService.bulkUploadSites(req.file.buffer);
+    return apiResponse.success(res, "Bulk upload processed successfully", { result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getSites,
   getSite,
   createSite,
   updateSite,
   deleteSite,
+  bulkUploadSites,
 };

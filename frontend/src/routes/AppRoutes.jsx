@@ -195,11 +195,11 @@ const AppRoutes = () => {
           path="/survey-sites/edit/:id"
           element={
             <PrivateRoute>
-              <AdminRoute>
-                <AdminLayout>
+              <SubAdminRoute>
+                <RoleBasedLayout>
                   <EditSite />
-                </AdminLayout>
-              </AdminRoute>
+                </RoleBasedLayout>
+              </SubAdminRoute>
             </PrivateRoute>
           }
         />
@@ -208,11 +208,11 @@ const AppRoutes = () => {
           path="/survey-sites/assign"
           element={
             <PrivateRoute>
-              <AdminRoute>
-                <AdminLayout>
+              <SubAdminRoute>
+                <RoleBasedLayout>
                   <AssignSite />
-                </AdminLayout>
-              </AdminRoute>
+                </RoleBasedLayout>
+              </SubAdminRoute>
             </PrivateRoute>
           }
         />

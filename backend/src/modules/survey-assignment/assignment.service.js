@@ -1,20 +1,10 @@
+
 const { prisma } = require("../../config/database");
 
 const getAllAssignments = async (user) => {
   let where = { isDeleted: false };
 
-  if (user && user.role === "SUB_ADMIN") {
-    const managedSurveyors = await prisma.user.findMany({
-      where: {
-        isDeleted: false,
-        role: "SURVEY_PERSON",
-        OR: [{ createdBy: user.id }, { createdBy: null }]
-      },
-      select: { id: true }
-    });
-    const surveyorIds = managedSurveyors.map((s) => s.id);
-    where.surveyorId = { in: surveyorIds };
-  } else if (user && (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR")) {
+  if (user && (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR")) {
     where.surveyorId = user.id;
   }
 
@@ -48,23 +38,24 @@ const createAssignment = async (data, user) => {
     throw new Error("At least one Survey Person must be selected.");
   }
 
-  // Security validation for SUB_ADMIN
-  if (user && user.role === "SUB_ADMIN") {
-    const managedSurveyors = await prisma.user.findMany({
+  // Retrieve active assignments to clean up deselected ones
+  const activeAssignments = await prisma.surveyAssignment.findMany({
+    where: { surveySiteId, isDeleted: false }
+  });
+  const activeSurveyorIds = activeAssignments.map((a) => a.surveyorId);
+
+  const toRemove = activeSurveyorIds.filter((sId) => !idsToAssign.includes(sId));
+  if (toRemove.length > 0) {
+    await prisma.surveyAssignment.updateMany({
       where: {
-        isDeleted: false,
-        role: "SURVEY_PERSON",
-        OR: [{ createdBy: user.id }, { createdBy: null }]
+        surveySiteId,
+        surveyorId: { in: toRemove }
       },
-      select: { id: true }
+      data: {
+        isDeleted: true,
+        deletedAt: new Date()
+      }
     });
-    const managedIds = managedSurveyors.map((s) => s.id);
-    const unauthorizedSelection = idsToAssign.some((id) => !managedIds.includes(id));
-    if (unauthorizedSelection) {
-      const err = new Error("Access denied. You cannot assign surveys to surveyors outside your control.");
-      err.statusCode = 403;
-      throw err;
-    }
   }
 
   const createdAssignments = [];
@@ -95,18 +86,15 @@ const createAssignment = async (data, user) => {
         });
         createdAssignments.push(updated);
       } else {
-        // If it's already active, update its assignedDate to now to treat it as recent assignment activity
-        const updated = await prisma.surveyAssignment.update({
+        // Keep active assignments unchanged to protect their progress
+        const loaded = await prisma.surveyAssignment.findUnique({
           where: { id: existing.id },
-          data: {
-            assignedDate: new Date(),
-          },
           include: {
             surveyor: { select: { id: true, name: true, email: true } },
             surveySite: true,
           },
         });
-        createdAssignments.push(updated);
+        createdAssignments.push(loaded);
       }
     } else {
       const created = await prisma.surveyAssignment.create({
@@ -125,10 +113,13 @@ const createAssignment = async (data, user) => {
   }
 
   // Update site status to ASSIGNED if pending
-  await prisma.surveySite.update({
-    where: { id: surveySiteId },
-    data: { status: "ASSIGNED" },
-  });
+  const site = await prisma.surveySite.findUnique({ where: { id: surveySiteId } });
+  if (site && site.status === "PENDING") {
+    await prisma.surveySite.update({
+      where: { id: surveySiteId },
+      data: { status: "ASSIGNED" },
+    });
+  }
 
   return createdAssignments;
 };
@@ -161,22 +152,7 @@ const deleteAssignment = async (id, user) => {
   });
   if (!assignment) throw new Error("Assignment not found.");
 
-  if (user && user.role === "SUB_ADMIN") {
-    const managedSurveyors = await prisma.user.findMany({
-      where: {
-        isDeleted: false,
-        role: "SURVEY_PERSON",
-        OR: [{ createdBy: user.id }, { createdBy: null }]
-      },
-      select: { id: true }
-    });
-    const managedIds = managedSurveyors.map((s) => s.id);
-    if (!managedIds.includes(assignment.surveyorId)) {
-      const err = new Error("Access denied. You cannot delete assignments for surveyors outside your control.");
-      err.statusCode = 403;
-      throw err;
-    }
-  }
+  // SUB_ADMIN can delete assignments similar to ADMIN
 
   await prisma.surveyAssignment.update({
     where: { id },

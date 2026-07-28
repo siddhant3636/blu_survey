@@ -145,9 +145,19 @@ const AssignedSites = () => {
                       <td>{site.address}</td>
                       <td>{new Date(a.assignedDate).toLocaleDateString()}</td>
                       <td>
-                        <Link to={`/survey/site-info/${a.id}`}>
-                          <Button style={{ padding: "6px 12px", fontSize: "12px" }}>Start Survey</Button>
-                        </Link>
+                        {(() => {
+                          const siteSurvey = surveys.find(
+                            (s) => s.surveySiteId === a.surveySiteId && s.status !== "APPROVED"
+                          );
+                          const isPage1Completed = siteSurvey && siteSurvey.firstPageLocked;
+                          return (
+                            <Link to={`/survey/site-info/${a.id}`}>
+                              <Button style={{ padding: "6px 12px", fontSize: "12px" }}>
+                                {isPage1Completed ? "Continue Survey" : "Start Survey"}
+                              </Button>
+                            </Link>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );

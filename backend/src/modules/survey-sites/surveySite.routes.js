@@ -12,6 +12,16 @@ router.use(auth);
 router.get("/", surveySiteController.getSites);
 router.get("/:id", surveySiteController.getSite);
 
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.post(
+  "/bulk-upload",
+  authorize("ADMIN"),
+  upload.single("file"),
+  surveySiteController.bulkUploadSites
+);
+
 router.post(
   "/",
   authorize("ADMIN"),

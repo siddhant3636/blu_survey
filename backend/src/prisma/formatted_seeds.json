@@ -1,0 +1,1158 @@
+{
+  "opsSites": [
+    {
+      "siteId": "BSC-OPS-003",
+      "name": "Harkesh Nagar Okhla Metro Station Parking*",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Harkesh Nagar Okhla Metro Station Parking*, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-004",
+      "name": "SHAHADARA METRO STATION PARKING",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "SHAHADARA METRO STATION PARKING, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-005",
+      "name": "DILSHAD GARDEN METRO STATION PARKING",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "DILSHAD GARDEN METRO STATION PARKING, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-002",
+      "name": "Mohan Estate Metro Parking*",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Mohan Estate Metro Parking*, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-007",
+      "name": "Seelampur",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Seelampur, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-008",
+      "name": "Shastri park",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Shastri park, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-009",
+      "name": "Welcome",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Welcome, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-010",
+      "name": "Keshavpuram",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Keshavpuram, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-012",
+      "name": "Kalkaji Mandir Metro Station Parking",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Kalkaji Mandir Metro Station Parking, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-013",
+      "name": "Kohat Enclave",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Kohat Enclave, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-014",
+      "name": "Madipur Metro Parking",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Madipur Metro Parking, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-015",
+      "name": "Badarpur border",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Badarpur border, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-016",
+      "name": "Inderlok",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Inderlok, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-017",
+      "name": "Paschim Vihar East Metro Parking",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Paschim Vihar East Metro Parking, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-018",
+      "name": "Rohini East",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Rohini East, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-019",
+      "name": "DTC Karawal Nagar Terminal",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DTC",
+      "address": "DTC Karawal Nagar Terminal, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-020",
+      "name": "Ambedkar Nagar Depot",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DTC",
+      "address": "Ambedkar Nagar Depot, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-021",
+      "name": "Jal Vihar Terminal",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DTC",
+      "address": "Jal Vihar Terminal, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-022",
+      "name": "11kV s/stn A- Blk DSIDC shed",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "BYPL",
+      "address": "11kV s/stn A- Blk DSIDC shed, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-023",
+      "name": "Jasola Vihar Shaheen Bagh",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Jasola Vihar Shaheen Bagh, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-024",
+      "name": "Jamia Millia Islamia Metro Parking",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Jamia Millia Islamia Metro Parking, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-006",
+      "name": "Kanhaiya nagar",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Kanhaiya nagar, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-001",
+      "name": "Sarita Vihar Metro Station Parking*",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Sarita Vihar Metro Station Parking*, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-OPS-011",
+      "name": "Netaji Subhash place",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Netaji Subhash place, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    }
+  ],
+  "nopsSites": [
+    {
+      "siteId": "BSC-NOPS-001",
+      "name": "Mansarovar park",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Mansarovar park, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-NOPS-002",
+      "name": "DTC Dilshad Garden Terminal",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DTC",
+      "address": "DTC Dilshad Garden Terminal, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-NOPS-003",
+      "name": "DSIIDC BAWANA IND. AREA SEC-5 NEAR G-17",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DSIIDC",
+      "address": "DSIIDC BAWANA IND. AREA SEC-5 NEAR G-17, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-NOPS-004",
+      "name": "Tughlaqabad Metro Parking/ Govindpuri Metro parking",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "DMRC",
+      "address": "Tughlaqabad Metro Parking/ Govindpuri Metro parking, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-NOPS-005",
+      "name": "66 KV Grid for E/O Sector-30, Rohini Delhi Phase-IV/ Bawana-7 grid",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "TPDDL",
+      "address": "66 KV Grid for E/O Sector-30, Rohini Delhi Phase-IV/ Bawana-7 grid, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-NOPS-006",
+      "name": "66 KV Grid sub Station No.-1, Sector-F, DSIIDC Bawana Industrial Complex Phase-II/ DSIIDC Bawana Ph-2",
+      "concessionaire": "Blu Smart Pvt Ltd.",
+      "landOwningAgency": "TPDDL",
+      "address": "66 KV Grid sub Station No.-1, Sector-F, DSIIDC Bawana Industrial Complex Phase-II/ DSIIDC Bawana Ph-2, Delhi NCR",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    }
+  ],
+  "hubSites": [
+    {
+      "siteId": "BSC-HUB-001",
+      "name": "Spaze Tech Park - Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Spaze Tech Park - Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-002",
+      "name": "Ansal - Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Ansal - Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-003",
+      "name": "Sector 52- Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Sector 52- Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-004",
+      "name": "Gowork-Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Gowork-Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-005",
+      "name": "Sector 86- Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Sector 86- Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-006",
+      "name": "Chintel -Sec 114-Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Chintel -Sec 114-Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-007",
+      "name": "Sec 18- Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Sec 18- Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-008",
+      "name": "Ocus Sec 68 Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Ocus Sec 68 Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-009",
+      "name": "Basai Sec 9B- Gurgaon -Phase 1",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Basai Sec 9B- Gurgaon -Phase 1, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-010",
+      "name": "Basai Sec 9B- Gurgaon -Phase 1",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Basai Sec 9B- Gurgaon -Phase 1, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-011",
+      "name": "Basai Sec 9B- Gurgaon -Phase 1",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Basai Sec 9B- Gurgaon -Phase 1, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-013",
+      "name": "Sec 3- Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Sec 3- Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-014",
+      "name": "Vardhman- Faridabad",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Vardhman- Faridabad, Faridabad",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-015",
+      "name": "Kapashera-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Kapashera-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-016",
+      "name": "Kapashera-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Kapashera-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-017",
+      "name": "Vasant Square B3-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Vasant Square B3-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-018",
+      "name": "Vasant Square B3 EXP-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Vasant Square B3 EXP-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-020",
+      "name": "NDLS -Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "NDLS -Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-021",
+      "name": "NDLS -Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "NDLS -Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-022",
+      "name": "MGF Saket (Closed)",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "MGF Saket (Closed), Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-023",
+      "name": "Samalkha-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Samalkha-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-024",
+      "name": "Samalkha-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Samalkha-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-025",
+      "name": "Samalkha-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Samalkha-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-026",
+      "name": "Rajokri-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Rajokri-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-027",
+      "name": "Rajokri-Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Rajokri-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-028",
+      "name": "Sarjapur-Bangalore",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Sarjapur-Bangalore, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-029",
+      "name": "Aeropark",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Aeropark, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-030",
+      "name": "ORR",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "ORR, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-031",
+      "name": "ORR",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "ORR, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-032",
+      "name": "MGF Mall Saket",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "MGF Mall Saket, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-033",
+      "name": "DLT Site- Badarpur",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site- Badarpur, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-034",
+      "name": "DLT Site- Welcome Metro",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site- Welcome Metro, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-035",
+      "name": "DLT Site-Shahdara",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site-Shahdara, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-036",
+      "name": "Badarpur Mohan Estate",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Badarpur Mohan Estate, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-037",
+      "name": "DLT Site-Sarita Vihar",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site-Sarita Vihar, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-038",
+      "name": "DLT Site-Harkesh Nagar",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site-Harkesh Nagar, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-039",
+      "name": "DLT Site-Kalkaji",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site-Kalkaji, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-040",
+      "name": "DLT Site-Dilshad Garden",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site-Dilshad Garden, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-041",
+      "name": "Vibutipura",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Vibutipura, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-042",
+      "name": "Shettigere",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Shettigere, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-043",
+      "name": "Ghitorni -Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Ghitorni -Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-044",
+      "name": "Mohan Cooperative (Badarpur) Open",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Mohan Cooperative (Badarpur) Open, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-045",
+      "name": "Vardhman Mayur Vihar",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Vardhman Mayur Vihar, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-046",
+      "name": "Vardhman Paharganj",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Vardhman Paharganj, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-047",
+      "name": "DLT -Delhi rail Corporation Ltd",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT -Delhi rail Corporation Ltd, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-048",
+      "name": "DLT Site- Seelampur",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site- Seelampur, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-049",
+      "name": "DLT Site-Dilshad Garden",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Site-Dilshad Garden, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-050",
+      "name": "DLT Shastripark",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DLT Shastripark, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-051",
+      "name": "Faridabad",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Faridabad, Faridabad",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-052",
+      "name": "DTL Madipur",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL Madipur, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-054",
+      "name": "DTL- Inderlok",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL- Inderlok, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-055",
+      "name": "DTL_Kanahaiya Nagar",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL_Kanahaiya Nagar, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-056",
+      "name": "DTL Site -Keshav Puram",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL Site -Keshav Puram, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-057",
+      "name": "DTL Paschim Vihar",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL Paschim Vihar, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-058",
+      "name": "Kohat Enclave (DTL Site)",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "Kohat Enclave (DTL Site), Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-059",
+      "name": "DTL Site-Rohini Sector 18",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL Site-Rohini Sector 18, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-060",
+      "name": "DTL Site-Shstri Park Metro",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL Site-Shstri Park Metro, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-061",
+      "name": "Samalkha Workshop-Delhi",
+      "concessionaire": "BFPL",
+      "landOwningAgency": null,
+      "address": "Samalkha Workshop-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-062",
+      "name": "Samalkha Workshop-Delhi",
+      "concessionaire": "BFPL",
+      "landOwningAgency": null,
+      "address": "Samalkha Workshop-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-063",
+      "name": "Samalkha Workshop-Delhi",
+      "concessionaire": "BFPL",
+      "landOwningAgency": null,
+      "address": "Samalkha Workshop-Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-064",
+      "name": "DTL SITE- Netaji Subhas Palace",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "DTL SITE- Netaji Subhas Palace, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-065",
+      "name": "TDI -Jasola",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "TDI -Jasola, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-066",
+      "name": "TDI -Jasola (Parking)",
+      "concessionaire": null,
+      "landOwningAgency": null,
+      "address": "TDI -Jasola (Parking), Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-081",
+      "name": "Jasola Shaheen Bagh",
+      "concessionaire": "BCPL-DTL Site",
+      "landOwningAgency": null,
+      "address": "Jasola Shaheen Bagh, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-082",
+      "name": "Ansal - Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Ansal - Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-012",
+      "name": "Uppal",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Uppal, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "IN_PROGRESS"
+    },
+    {
+      "siteId": "BSC-HUB-019",
+      "name": "Eros-Nehru Place- Delhi",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Eros-Nehru Place- Delhi, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-053",
+      "name": "MCD Parking Vasant Square Mall",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "MCD Parking Vasant Square Mall, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-067",
+      "name": "Krishna Auto Mobile",
+      "concessionaire": "BFPL",
+      "landOwningAgency": null,
+      "address": "Krishna Auto Mobile, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-068",
+      "name": "Mehfooz (Friends Automobile)",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Mehfooz (Friends Automobile), Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-069",
+      "name": "MLCP Botanical Garden",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "MLCP Botanical Garden, Uttar Pradesh",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-070",
+      "name": "MLCP Sector 18 Noida",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "MLCP Sector 18 Noida, Uttar Pradesh",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-071",
+      "name": "Workshop",
+      "concessionaire": "BFPL",
+      "landOwningAgency": null,
+      "address": "Workshop, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-072",
+      "name": "Ashok Vihar Parking",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Ashok Vihar Parking, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-073",
+      "name": "MCD Parking Reliance Mall Dwarka Sector 13",
+      "concessionaire": null,
+      "landOwningAgency": null,
+      "address": "MCD Parking Reliance Mall Dwarka Sector 13, Delhi",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-074",
+      "name": "Sector 86- Gurgaon",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Sector 86- Gurgaon, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-075",
+      "name": "Vega City Mall",
+      "concessionaire": null,
+      "landOwningAgency": null,
+      "address": "Vega City Mall, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-076",
+      "name": "Sector - 84 Parking",
+      "concessionaire": null,
+      "landOwningAgency": null,
+      "address": "Sector - 84 Parking, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-077",
+      "name": "Ocus Medley Parking",
+      "concessionaire": null,
+      "landOwningAgency": null,
+      "address": "Ocus Medley Parking, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-078",
+      "name": "City Logic",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "City Logic, Mumbai",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-079",
+      "name": "Mumbai",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Mumbai, Mumbai",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-080",
+      "name": "Udhyog Vihar Nimai Tower",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Udhyog Vihar Nimai Tower, Gurgaon",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-083",
+      "name": "Dwarka Sec -10",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Dwarka Sec -10",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-084",
+      "name": "Workshop",
+      "concessionaire": "BFPL",
+      "landOwningAgency": null,
+      "address": "Workshop",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    },
+    {
+      "siteId": "BSC-HUB-085",
+      "name": "Manpho Hebbal Hub",
+      "concessionaire": "BCPL",
+      "landOwningAgency": null,
+      "address": "Manpho Hebbal Hub, Bangalore",
+      "latitude": null,
+      "longitude": null,
+      "status": "PENDING"
+    }
+  ]
+}

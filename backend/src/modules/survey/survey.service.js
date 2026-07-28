@@ -2,6 +2,9 @@ const { prisma } = require("../../config/database");
 const { formatPhotoPath } = require("../photos/photo.helper");
 
 const getAllSurveys = async (user) => {
+  if (!user || !["ADMIN", "SUB_ADMIN", "SURVEY_PERSON", "SURVEYOR", "MANAGER"].includes(user.role)) {
+    return [];
+  }
   let where = { isDeleted: false };
 
   if (user && (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR")) {
@@ -143,7 +146,7 @@ const getSurveyById = async (id, user) => {
 const getSurveyBySiteId = async (surveySiteId, user) => {
   let where = { surveySiteId, isDeleted: false, status: { not: "APPROVED" } };
   
-  const survey = await prisma.survey.findFirst({
+  let survey = await prisma.survey.findFirst({
     where,
     include: {
       surveySite: {
@@ -188,6 +191,124 @@ const getSurveyBySiteId = async (surveySiteId, user) => {
       },
     },
   });
+
+  const now = new Date();
+
+  if (!survey && user && (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR")) {
+    const assignment = await prisma.surveyAssignment.findFirst({
+      where: { surveySiteId, surveyorId: user.id, isDeleted: false }
+    });
+    if (assignment) {
+      survey = await prisma.survey.create({
+        data: {
+          surveySiteId,
+          createdById: user.id,
+          status: "DRAFT",
+          firstPageLocked: false,
+          firstPageLockedByUserId: user.id,
+          firstPageLockedBy: user.name || "Surveyor",
+          firstPageLockedAt: now,
+        },
+        include: {
+          surveySite: {
+            include: {
+              assignments: {
+                where: { isDeleted: false }
+              }
+            }
+          },
+          chargers: {
+            where: { isDeleted: false },
+            include: {
+              manufacturer: true,
+              model: true,
+              connector: true,
+              mccbMaker: true,
+              mcbMaker: true,
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+          panels: {
+            where: { isDeleted: false },
+            include: {
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+          transformers: {
+            where: { isDeleted: false },
+            include: {
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+          dgs: {
+            where: { isDeleted: false },
+            include: {
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+        }
+      });
+    }
+  } else if (survey && !survey.firstPageLocked && user && (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR") && survey.firstPageLockedByUserId !== user.id) {
+    const isStale = survey.firstPageLockedAt && (now.getTime() - new Date(survey.firstPageLockedAt).getTime() > 10 * 60 * 1000);
+    if (isStale) {
+      survey = await prisma.survey.update({
+        where: { id: survey.id },
+        data: {
+          createdById: user.id,
+          firstPageLockedByUserId: user.id,
+          firstPageLockedBy: user.name || "Surveyor",
+          firstPageLockedAt: now,
+        },
+        include: {
+          surveySite: {
+            include: {
+              assignments: {
+                where: { isDeleted: false }
+              }
+            }
+          },
+          chargers: {
+            where: { isDeleted: false },
+            include: {
+              manufacturer: true,
+              model: true,
+              connector: true,
+              mccbMaker: true,
+              mcbMaker: true,
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+          panels: {
+            where: { isDeleted: false },
+            include: {
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+          transformers: {
+            where: { isDeleted: false },
+            include: {
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+          dgs: {
+            where: { isDeleted: false },
+            include: {
+              lockedByUser: { select: { id: true, name: true, email: true } },
+            },
+            orderBy: { assetIndex: "asc" },
+          },
+        }
+      });
+    }
+  }
 
   if (!survey) return null;
 
@@ -243,6 +364,12 @@ const initiateStep1 = async (surveyorId, data) => {
 
   // Perform full Step 1 update and asset count sync within a single database transaction
   const surveyId = await prisma.$transaction(async (tx) => {
+    // 1. Row-lock SurveySite record immediately to block concurrent requests
+    await tx.surveySite.update({
+      where: { id: surveySiteId },
+      data: { status: "IN_PROGRESS" },
+    });
+
     if (user && user.role !== "ADMIN" && user.role !== "SUB_ADMIN") {
       const assignment = await tx.surveyAssignment.findFirst({
         where: {
@@ -262,12 +389,6 @@ const initiateStep1 = async (surveyorId, data) => {
       });
     }
 
-    // Update site status to IN_PROGRESS
-    await tx.surveySite.update({
-      where: { id: surveySiteId },
-      data: { status: "IN_PROGRESS" },
-    });
-
     // Check if survey container already exists for this site which is not yet APPROVED
     let survey = await tx.survey.findFirst({
       where: {
@@ -280,6 +401,12 @@ const initiateStep1 = async (surveyorId, data) => {
     if (survey) {
       if (survey.firstPageLocked && survey.firstPageLockedByUserId !== surveyorId) {
         throw new Error(`The first page has already been completed by ${survey.firstPageLockedBy || "another surveyor"}.`);
+      }
+      if (!survey.firstPageLocked && survey.firstPageLockedByUserId !== surveyorId) {
+        const isStale = survey.firstPageLockedAt && (new Date().getTime() - new Date(survey.firstPageLockedAt).getTime() > 10 * 60 * 1000);
+        if (!isStale) {
+          throw new Error(`The first page is currently locked/being edited by ${survey.firstPageLockedBy || "another surveyor"}.`);
+        }
       }
       if (["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status)) {
         throw new Error("This survey has been submitted and is locked for editing.");
@@ -425,6 +552,10 @@ const lockAsset = async (userId, { assetType, assetId }) => {
     });
     const isUserAdmin = user && (user.role === "ADMIN" || user.role === "SUB_ADMIN");
 
+    if (isUserAdmin) {
+      return asset;
+    }
+
     // Fetch survey and verify surveyor assignment
     const survey = await tx.survey.findUnique({
       where: { id: asset.surveyId },
@@ -439,7 +570,7 @@ const lockAsset = async (userId, { assetType, assetId }) => {
       }
     });
 
-    if (!isUserAdmin && survey) {
+    if (survey) {
       const isAssigned = survey.createdById === userId || survey.surveySite?.assignments?.some((a) => a.surveyorId === userId);
       if (!isAssigned) {
         throw new Error("Access denied. You are not assigned to this survey.");
@@ -450,16 +581,14 @@ const lockAsset = async (userId, { assetType, assetId }) => {
     const isLockedByOther = asset.lockedByUserId && asset.lockedByUserId !== userId;
     const isLockExpired = asset.lockedAt && (now.getTime() - new Date(asset.lockedAt).getTime() > 5 * 60 * 1000); // 5 minutes timeout
 
-    if (!isUserAdmin) {
-      if (asset.status === "COMPLETED") {
-        if (asset.lockedByUserId && asset.lockedByUserId !== userId) {
-          throw new Error(`This equipment item is already completed by ${asset.lockedByUser?.name || "another surveyor"}.`);
-        }
+    if (asset.status === "COMPLETED") {
+      if (asset.lockedByUserId && asset.lockedByUserId !== userId) {
+        throw new Error(`This equipment item is already completed by ${asset.lockedByUser?.name || "another surveyor"}.`);
       }
+    }
 
-      if (isLockedByOther && !isLockExpired) {
-        throw new Error(`This equipment item is currently locked/being edited by ${asset.lockedByUser?.name || "another surveyor"}.`);
-      }
+    if (isLockedByOther && !isLockExpired) {
+      throw new Error(`This equipment item is currently locked/being edited by ${asset.lockedByUser?.name || "another surveyor"}.`);
     }
 
     return tx[assetType.toLowerCase()].update({
@@ -548,7 +677,10 @@ const saveAssetData = async (userId, { assetType, assetId, data }) => {
     throw err;
   }
 
-  if (["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status)) {
+  const userObj = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  const isUserAdmin = userObj && (userObj.role === "ADMIN" || userObj.role === "SUB_ADMIN");
+
+  if (!isUserAdmin && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(survey.status)) {
     const err = new Error("This survey has been submitted and is locked for editing.");
     err.statusCode = 400;
     throw err;
@@ -672,16 +804,21 @@ const saveAssetData = async (userId, { assetType, assetId, data }) => {
     }
   }
 
+  const updateData = {
+    ...cleanData,
+    status: "COMPLETED",
+    updatedBy: userId,
+  };
+
+  if (!isUserAdmin || !existingAsset.lockedByUserId) {
+    updateData.lockedByUserId = userId;
+    updateData.lockedAt = new Date();
+  }
+
   // Update asset with sanitized data and mark COMPLETED
   const updatedAsset = await model.update({
     where: { id: assetId },
-    data: {
-      ...cleanData,
-      status: "COMPLETED",
-      lockedByUserId: userId,
-      lockedAt: new Date(),
-      updatedBy: userId,
-    },
+    data: updateData,
   });
 
   // Update survey status to READY_FOR_SUBMISSION if all assets completed (draft -> ready)

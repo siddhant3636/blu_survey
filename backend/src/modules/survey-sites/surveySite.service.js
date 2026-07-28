@@ -1,7 +1,11 @@
 const { prisma } = require("../../config/database");
 const { formatSurveySite } = require("./surveySite.helper");
+const ExcelJS = require("exceljs");
 
 const getAllSites = async (user) => {
+  if (!user || !["ADMIN", "SUB_ADMIN", "SURVEY_PERSON", "SURVEYOR", "MANAGER"].includes(user.role)) {
+    return [];
+  }
   let where = { isDeleted: false };
 
   if (user && (user.role === "SURVEY_PERSON" || user.role === "SURVEYOR")) {
@@ -11,21 +15,8 @@ const getAllSites = async (user) => {
         isDeleted: false,
       },
     };
-  } else if (user && user.role === "SUB_ADMIN") {
-    const managedSurveyors = await prisma.user.findMany({
-      where: {
-        isDeleted: false,
-        role: "SURVEY_PERSON",
-        OR: [{ createdBy: user.id }, { createdBy: null }]
-      },
-      select: { id: true }
-    });
-    const surveyorIds = managedSurveyors.map((s) => s.id);
-    where.OR = [
-      { createdBy: user.id },
-      { assignments: { some: { surveyorId: { in: surveyorIds }, isDeleted: false } } }
-    ];
   }
+  // SUB_ADMIN can view all sites similar to ADMIN
 
   const sites = await prisma.surveySite.findMany({
     where,
@@ -168,10 +159,159 @@ const deleteSite = async (id) => {
   return true;
 };
 
+const bulkUploadSites = async (buffer) => {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const worksheet = workbook.worksheets[0];
+
+  let totalProcessed = 0;
+  let successfullyAdded = 0;
+  let skippedDuplicates = 0;
+  const invalidRows = [];
+  const parsedDataRows = [];
+
+  // Fetch all existing sites to perform lightning-fast in-memory deduplication checks
+  const allExistingSites = await prisma.surveySite.findMany({
+    where: { isDeleted: false },
+    select: { name: true, concessionaire: true, landOwningAgency: true }
+  });
+
+  const existingMap = new Map();
+  allExistingSites.forEach((site) => {
+    const key = `${(site.name || "").trim().toLowerCase()}|${(site.concessionaire || "").trim().toLowerCase()}|${(site.landOwningAgency || "").trim().toLowerCase()}`;
+    existingMap.set(key, true);
+  });
+
+  const rows = [];
+  worksheet.eachRow((row, rowNumber) => {
+    rows.push({ row, rowNumber });
+  });
+
+  for (const { row, rowNumber } of rows) {
+    const sNoCell = row.getCell(1).value;
+    const nameCell = row.getCell(2).value;
+    const concessionaireCell = row.getCell(3).value;
+    const landAgencyCell = row.getCell(4).value;
+
+    const getCellValue = (cell) => {
+      if (cell === null || cell === undefined) return "";
+      if (typeof cell === "object" && cell.text) return cell.text.toString();
+      if (typeof cell === "object" && cell.result) return cell.result.toString();
+      return cell.toString();
+    };
+
+    const sNoStr = getCellValue(sNoCell).trim();
+    const nameStr = getCellValue(nameCell).trim();
+    const concessionaireStr = getCellValue(concessionaireCell).trim();
+    const landAgencyStr = getCellValue(landAgencyCell).trim();
+
+    // 1. Skip completely blank rows
+    if (!sNoStr && !nameStr && !concessionaireStr && !landAgencyStr) {
+      continue;
+    }
+
+    // 2. Skip header row
+    const isHeaderRow = 
+      sNoStr.toLowerCase().includes("s.no") ||
+      nameStr.toLowerCase().includes("name") ||
+      concessionaireStr.toLowerCase().includes("concessionaire") ||
+      landAgencyStr.toLowerCase().includes("land owning");
+    
+    if (isHeaderRow) {
+      continue;
+    }
+
+    // 3. Section heading rows check
+    const isNumericSNo = /^\d+$/.test(sNoStr) || /^\d+\.?\d*$/.test(sNoStr);
+    const hasValues = concessionaireStr || landAgencyStr;
+
+    if (!isNumericSNo && !hasValues && nameStr) {
+      continue;
+    }
+
+    // 4. Data Row processing
+    totalProcessed++;
+
+    // Clean data
+    const cleanedName = nameStr.replace(/\s+/g, " ").trim();
+    const cleanedConcessionaire = concessionaireStr.replace(/\s+/g, " ").trim();
+    const cleanedLandAgency = landAgencyStr.replace(/\s+/g, " ").trim();
+
+    if (!cleanedName) {
+      invalidRows.push({
+        rowNumber,
+        reason: "Missing site name"
+      });
+      continue;
+    }
+
+    // Uniqueness key
+    const uniqueKey = `${cleanedName.toLowerCase()}|${cleanedConcessionaire.toLowerCase()}|${cleanedLandAgency.toLowerCase()}`;
+    if (existingMap.has(uniqueKey)) {
+      skippedDuplicates++;
+      continue;
+    }
+
+    parsedDataRows.push({
+      name: cleanedName,
+      concessionaire: cleanedConcessionaire || null,
+      landOwningAgency: cleanedLandAgency || null,
+      address: cleanedName,
+      rowNumber
+    });
+  }
+
+  // Row-by-row insertion
+  for (let i = 0; i < parsedDataRows.length; i++) {
+    const rowData = parsedDataRows[i];
+    try {
+      let count = await prisma.surveySite.count();
+      let siteId;
+      let exists = true;
+      while (exists) {
+        const nextNum = (count + 1).toString().padStart(3, "0");
+        siteId = `BSC${nextNum}`;
+        const match = await prisma.surveySite.findUnique({ where: { siteId } });
+        if (!match) {
+          exists = false;
+        } else {
+          count++;
+        }
+      }
+
+      await prisma.surveySite.create({
+        data: {
+          siteId,
+          name: rowData.name,
+          concessionaire: rowData.concessionaire,
+          landOwningAgency: rowData.landOwningAgency,
+          address: rowData.address,
+          status: "PENDING"
+        }
+      });
+      successfullyAdded++;
+    } catch (dbErr) {
+      console.error(`Error saving row ${rowData.rowNumber}:`, dbErr);
+      invalidRows.push({
+        rowNumber: rowData.rowNumber,
+        reason: `Database error: ${dbErr.message}`
+      });
+    }
+  }
+
+  return {
+    totalProcessed,
+    successfullyAdded,
+    skippedDuplicates,
+    invalidRows
+  };
+};
+
 module.exports = {
   getAllSites,
   getSiteById,
   createSite,
   updateSite,
   deleteSite,
+  bulkUploadSites,
 };

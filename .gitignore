@@ -1,9 +1,47 @@
-#Backend
-/backend/.env
-/backend/node_modules/
-/backend/logs/*
+# =========================
+# Backend
+# =========================
+backend/.env
+backend/.env.*
 
-#Frontend
-/frontend/.env
-/frontend/node_modules/
-/frontend/vite.config.js
+backend/node_modules/
+
+backend/logs/
+backend/src/logs/
+
+backend/backup/
+backend/database_backup.json
+
+*.sql
+*.dump
+*.backup
+
+# =========================
+# Frontend
+# =========================
+frontend/.env
+frontend/.env.*
+
+frontend/node_modules/
+
+frontend/dist/
+
+# DO NOT IGNORE THIS
+# frontend/vite.config.js
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+Thumbs.db
+.DS_Store

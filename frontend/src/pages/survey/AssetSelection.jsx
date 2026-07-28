@@ -94,6 +94,7 @@ const AssetSelection = () => {
     const now = new Date();
     const isExpired = asset.lockedAt && (now.getTime() - new Date(asset.lockedAt).getTime() > 5 * 60 * 1000);
     const hasActiveLock = asset.lockedByUserId && !isExpired;
+    const isAdmin = user?.role === "ADMIN" || user?.role === "SUB_ADMIN";
 
     if (asset.status === "COMPLETED") {
       return {
@@ -117,7 +118,7 @@ const AssetSelection = () => {
           label: "LOCKED",
           text: `🔒 Locked — Being filled by ${asset.lockedByUser?.name || "another surveyor"}`,
           color: "#ef4444",
-          isLocked: true,
+          isLocked: isAdmin ? false : true,
         };
       }
     }

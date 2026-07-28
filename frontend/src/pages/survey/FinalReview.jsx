@@ -145,22 +145,49 @@ const FinalReview = () => {
     });
   };
 
+  let envApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+  if (
+    typeof window !== "undefined" &&
+    window.location &&
+    !window.location.hostname.includes("localhost") &&
+    !window.location.hostname.includes("127.0.0.1") &&
+    envApiUrl.includes("localhost")
+  ) {
+    envApiUrl = window.location.origin + "/api/v1";
+  }
+  const apiBaseHost = envApiUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
+
+  const getFullImageUrl = (photo) => {
+    if (!photo) return "";
+    let rawPath = photo.url || photo.filePath || "";
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      return rawPath;
+    }
+    if (!rawPath.startsWith("/")) {
+      rawPath = `/${rawPath}`;
+    }
+    return `${apiBaseHost}${rawPath}`;
+  };
+
   const renderPhotosGrid = (assetPhotos) => {
     if (assetPhotos.length === 0) {
       return <p style={{ fontSize: "12px", color: "var(--text-secondary)", fontStyle: "italic" }}>No photos attached</p>;
     }
     return (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: "8px", marginTop: "8px" }}>
-        {assetPhotos.map((p) => (
-          <div key={p.id} style={{ borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)", aspectRatio: "4/3", position: "relative", backgroundColor: "#000" }}>
-            <a href={p.url || p.filePath} target="_blank" rel="noreferrer">
-              <img src={p.url || p.filePath} alt={p.category?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </a>
-            <span style={{ position: "absolute", bottom: "2px", left: "2px", backgroundColor: "rgba(0,0,0,0.7)", color: "#fff", fontSize: "9px", padding: "1px 4px", borderRadius: "3px" }}>
-              {p.category?.name?.split("-")?.pop()?.trim() || "Photo"}
-            </span>
-          </div>
-        ))}
+        {assetPhotos.map((p) => {
+          const imageUrl = getFullImageUrl(p);
+          return (
+            <div key={p.id} style={{ borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)", aspectRatio: "4/3", position: "relative", backgroundColor: "#000" }}>
+              <a href={imageUrl} target="_blank" rel="noreferrer">
+                <img src={imageUrl} alt={p.category?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </a>
+              <span style={{ position: "absolute", bottom: "2px", left: "2px", backgroundColor: "rgba(0,0,0,0.7)", color: "#fff", fontSize: "9px", padding: "1px 4px", borderRadius: "3px" }}>
+                {p.category?.name?.split("-")?.pop()?.trim() || "Photo"}
+              </span>
+            </div>
+          );
+        })}
       </div>
     );
   };

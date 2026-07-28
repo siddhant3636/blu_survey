@@ -97,6 +97,7 @@ const ChargerSurvey = () => {
   const [mcb2pTypes, setMcb2pTypes] = useState([]);
   const [mcb4pCount, setMcb4pCount] = useState(0);
   const [mcb4pTypes, setMcb4pTypes] = useState([]);
+  const [assetStatus, setAssetStatus] = useState("AVAILABLE");
 
   // Reduction confirmation modal state
   const [reductionModal, setReductionModal] = useState({
@@ -245,6 +246,7 @@ const ChargerSurvey = () => {
         const targetAsset = (sData?.chargers || []).find((c) => c.id === assetId);
         if (targetAsset) {
           setAssetIndex(targetAsset.assetIndex);
+          setAssetStatus(targetAsset.status || "AVAILABLE");
 
           // If target asset has saved manufacturer/connector/maker that is deactivated, preserve it in options
           if (targetAsset.manufacturer && !fetchedMfgs.some((m) => m.id === targetAsset.manufacturerId)) {
@@ -536,42 +538,73 @@ const ChargerSurvey = () => {
       newErrors.connectorId = "Connector Type is required.";
     }
 
-    // Validate MCCB 4P individual dropdown selections
+    // Validate Breaker Counts and Entries based on Charger Type
     if (form.chargerType === "Fast") {
-      for (let i = 0; i < mccb4pCount; i++) {
-        const rVal = mccb4pTypes[i]?.rating;
-        if (!rVal || !rVal.trim()) {
-          newErrors[`mccb4p_${i}`] = `Please select a type/rating for MCCB 4P #${i + 1}.`;
-        } else if (rVal !== "N/A") {
-          if (!mccb4pTypes[i]?.brandId || !mccb4pTypes[i].brandId.trim()) {
-            newErrors[`mccb4p_brand_${i}`] = `Please select a brand for MCCB 4P #${i + 1}.`;
+      // Validate MCCB 4P Count
+      const mccbCountNum = Number(mccb4pCount);
+      if (mccb4pCount === "" || isNaN(mccbCountNum) || mccbCountNum < 0 || !Number.isInteger(mccbCountNum)) {
+        newErrors.mccb4pCount = "MCCB 4P Count must be a valid non-negative integer.";
+      } else {
+        for (let i = 0; i < mccb4pCount; i++) {
+          const rVal = mccb4pTypes[i]?.rating;
+          if (!rVal || !rVal.trim()) {
+            newErrors[`mccb4p_${i}`] = `Please select a type/rating for MCCB 4P #${i + 1}.`;
+          } else if (rVal !== "N/A") {
+            if (!mccb4pTypes[i]?.brandId || !mccb4pTypes[i].brandId.trim()) {
+              newErrors[`mccb4p_brand_${i}`] = `Please select a brand for MCCB 4P #${i + 1}.`;
+            }
           }
         }
       }
-    }
 
-    // Validate MCB 2P individual dropdown selections
-    if (form.chargerType === "Slow") {
-      for (let i = 0; i < mcb2pCount; i++) {
-        const rVal = mcb2pTypes[i]?.rating;
-        if (!rVal || !rVal.trim()) {
-          newErrors[`mcb2p_${i}`] = `Please select a type/rating for MCB 2P #${i + 1}.`;
-        } else if (rVal !== "N/A") {
-          if (!mcb2pTypes[i]?.brandId || !mcb2pTypes[i].brandId.trim()) {
-            newErrors[`mcb2p_brand_${i}`] = `Please select a brand for MCB 2P #${i + 1}.`;
+      // Validate MCB 4P Count
+      const mcb4pCountNum = Number(mcb4pCount);
+      if (mcb4pCount === "" || isNaN(mcb4pCountNum) || mcb4pCountNum < 0 || !Number.isInteger(mcb4pCountNum)) {
+        newErrors.mcb4pCount = "MCB 4P Count must be a valid non-negative integer.";
+      } else {
+        for (let i = 0; i < mcb4pCount; i++) {
+          const rVal = mcb4pTypes[i]?.rating;
+          if (!rVal || !rVal.trim()) {
+            newErrors[`mcb4p_${i}`] = `Please select a type/rating for MCB 4P #${i + 1}.`;
+          } else if (rVal !== "N/A") {
+            if (!mcb4pTypes[i]?.brandId || !mcb4pTypes[i].brandId.trim()) {
+              newErrors[`mcb4p_brand_${i}`] = `Please select a brand for MCB 4P #${i + 1}.`;
+            }
           }
         }
       }
-    }
+    } else if (form.chargerType === "Slow") {
+      // Validate MCB 2P Count
+      const mcb2pCountNum = Number(mcb2pCount);
+      if (mcb2pCount === "" || isNaN(mcb2pCountNum) || mcb2pCountNum < 0 || !Number.isInteger(mcb2pCountNum)) {
+        newErrors.mcb2pCount = "MCB 2P Count must be a valid non-negative integer.";
+      } else {
+        for (let i = 0; i < mcb2pCount; i++) {
+          const rVal = mcb2pTypes[i]?.rating;
+          if (!rVal || !rVal.trim()) {
+            newErrors[`mcb2p_${i}`] = `Please select a type/rating for MCB 2P #${i + 1}.`;
+          } else if (rVal !== "N/A") {
+            if (!mcb2pTypes[i]?.brandId || !mcb2pTypes[i].brandId.trim()) {
+              newErrors[`mcb2p_brand_${i}`] = `Please select a brand for MCB 2P #${i + 1}.`;
+            }
+          }
+        }
+      }
 
-    // Validate MCB 4P individual dropdown selections
-    for (let i = 0; i < mcb4pCount; i++) {
-      const rVal = mcb4pTypes[i]?.rating;
-      if (!rVal || !rVal.trim()) {
-        newErrors[`mcb4p_${i}`] = `Please select a type/rating for MCB 4P #${i + 1}.`;
-      } else if (rVal !== "N/A") {
-        if (!mcb4pTypes[i]?.brandId || !mcb4pTypes[i].brandId.trim()) {
-          newErrors[`mcb4p_brand_${i}`] = `Please select a brand for MCB 4P #${i + 1}.`;
+      // Validate MCB 4P Count
+      const mcb4pCountNum = Number(mcb4pCount);
+      if (mcb4pCount === "" || isNaN(mcb4pCountNum) || mcb4pCountNum < 0 || !Number.isInteger(mcb4pCountNum)) {
+        newErrors.mcb4pCount = "MCB 4P Count must be a valid non-negative integer.";
+      } else {
+        for (let i = 0; i < mcb4pCount; i++) {
+          const rVal = mcb4pTypes[i]?.rating;
+          if (!rVal || !rVal.trim()) {
+            newErrors[`mcb4p_${i}`] = `Please select a type/rating for MCB 4P #${i + 1}.`;
+          } else if (rVal !== "N/A") {
+            if (!mcb4pTypes[i]?.brandId || !mcb4pTypes[i].brandId.trim()) {
+              newErrors[`mcb4p_brand_${i}`] = `Please select a brand for MCB 4P #${i + 1}.`;
+            }
+          }
         }
       }
     }
@@ -700,7 +733,8 @@ const ChargerSurvey = () => {
     { value: "125A", label: "125A" },
   ];
 
-  const isReadOnly = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus);
+  const isReadOnly = 
+    (!["ADMIN", "SUB_ADMIN"].includes(user?.role) && ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(surveyStatus));
 
   if (isLockedByOther) {
     return (
@@ -752,174 +786,6 @@ const ChargerSurvey = () => {
                 error={errors.chargerType}
               />
             </div>
-
-            {/* 2. Based on Charger Type: Counts */}
-            {form.chargerType === "Slow" && (
-              <>
-                <div id="field-mcb2pCount" style={{ gridColumn: "1 / -1" }}>
-                  <Input
-                    label="Number of MCB 2P Breakers"
-                    name="mcb2pCount"
-                    type="number"
-                    min="0"
-                    value={mcb2pCount}
-                    onChange={(e) => {
-                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
-                      handleBreakerCountInputChange("mcb2p", "MCB 2P", e.target.value);
-                    }}
-                    onBlur={() => handleBreakerCountBlur("mcb2p", "MCB 2P")}
-                    placeholder="Enter count (e.g. 0, 1, 2...)"
-                  />
-                </div>
-                <div id="field-mcb4pCount" style={{ gridColumn: "1 / -1" }}>
-                  <Input
-                    label="Number of MCB 4P Breakers"
-                    name="mcb4pCount"
-                    type="number"
-                    min="0"
-                    value={mcb4pCount}
-                    onChange={(e) => {
-                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
-                      handleBreakerCountInputChange("mcb4p", "MCB 4P", e.target.value);
-                    }}
-                    onBlur={() => handleBreakerCountBlur("mcb4p", "MCB 4P")}
-                    placeholder="Enter count (e.g. 0, 1, 2...)"
-                  />
-                </div>
-              </>
-            )}
-
-            {form.chargerType === "Fast" && (
-              <>
-                <div id="field-mccb4pCount" style={{ gridColumn: "1 / -1" }}>
-                  <Input
-                    label="Number of MCCB 4P Breakers"
-                    name="mccb4pCount"
-                    type="number"
-                    min="0"
-                    value={mccb4pCount}
-                    onChange={(e) => {
-                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
-                      handleBreakerCountInputChange("mccb4p", "MCCB 4P", e.target.value);
-                    }}
-                    onBlur={() => handleBreakerCountBlur("mccb4p", "MCCB 4P")}
-                    placeholder="Enter count (e.g. 0, 1, 2...)"
-                  />
-                </div>
-                <div id="field-mcb4pCount" style={{ gridColumn: "1 / -1" }}>
-                  <Input
-                    label="Number of MCB 4P Breakers"
-                    name="mcb4pCount"
-                    type="number"
-                    min="0"
-                    value={mcb4pCount}
-                    onChange={(e) => {
-                      e.target.value = e.target.value.replace(/^0+(\d+)/, "$1");
-                      handleBreakerCountInputChange("mcb4p", "MCB 4P", e.target.value);
-                    }}
-                    onBlur={() => handleBreakerCountBlur("mcb4p", "MCB 4P")}
-                    placeholder="Enter count (e.g. 0, 1, 2...)"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* 3. Dynamic rating and maker selections */}
-            {/* MCCB 4P Dynamic Selections (Fast only) */}
-            {form.chargerType === "Fast" && mccb4pCount > 0 && (
-              <div style={{ gridColumn: "1 / -1", marginTop: "4px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
-                {Array.from({ length: mccb4pCount }).map((_, idx) => (
-                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div id={`field-mccb4p_${idx}`}>
-                      <Select2
-                        label={`MCCB 4P #${idx + 1} Rating`}
-                        name={`mccb4p_${idx}`}
-                        value={mccb4pTypes[idx]?.rating || ""}
-                        onChange={(e) => handleBreakerRatingChange("mccb4p", idx, e.target.value)}
-                        options={mccb4pOptions.length > 0 ? mccb4pOptions : fallbackMCCB4P}
-                        placeholder={`Select MCCB 4P #${idx + 1} Rating...`}
-                        error={errors[`mccb4p_${idx}`]}
-                      />
-                    </div>
-                    <div id={`field-mccb4p_brand_${idx}`}>
-                      <Select2
-                        label={`MCCB 4P #${idx + 1} Brand`}
-                        name={`mccb4p_brand_${idx}`}
-                        value={mccb4pTypes[idx]?.brandId || ""}
-                        onChange={(e) => handleBreakerBrandChange("mccb4p", idx, e.target.value, mccbMakerOptions)}
-                        options={mccbMakerOptions}
-                        placeholder={`Select MCCB 4P #${idx + 1} Brand...`}
-                        error={errors[`mccb4p_brand_${idx}`]}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* MCB 2P Dynamic Selections (Slow only) */}
-            {form.chargerType === "Slow" && mcb2pCount > 0 && (
-              <div style={{ gridColumn: "1 / -1", marginTop: "4px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
-                {Array.from({ length: mcb2pCount }).map((_, idx) => (
-                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div id={`field-mcb2p_${idx}`}>
-                      <Select2
-                        label={`MCB 2P #${idx + 1} Rating`}
-                        name={`mcb2p_${idx}`}
-                        value={mcb2pTypes[idx]?.rating || ""}
-                        onChange={(e) => handleBreakerRatingChange("mcb2p", idx, e.target.value)}
-                        options={mcb2pOptions.length > 0 ? mcb2pOptions : fallbackMCB2P}
-                        placeholder={`Select MCB 2P #${idx + 1} Rating...`}
-                        error={errors[`mcb2p_${idx}`]}
-                      />
-                    </div>
-                    <div id={`field-mcb2p_brand_${idx}`}>
-                      <Select2
-                        label={`MCB 2P #${idx + 1} Brand`}
-                        name={`mcb2p_brand_${idx}`}
-                        value={mcb2pTypes[idx]?.brandId || ""}
-                        onChange={(e) => handleBreakerBrandChange("mcb2p", idx, e.target.value, mcbMakerOptions)}
-                        options={mcbMakerOptions}
-                        placeholder={`Select MCB 2P #${idx + 1} Brand...`}
-                        error={errors[`mcb2p_brand_${idx}`]}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* MCB 4P Dynamic Selections (Slow or Fast) */}
-            {((form.chargerType === "Slow" || form.chargerType === "Fast")) && mcb4pCount > 0 && (
-              <div style={{ gridColumn: "1 / -1", marginTop: "4px", padding: "14px", backgroundColor: "rgba(0,0,0,0.15)", borderRadius: "8px", border: "1px solid var(--border-color)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
-                {Array.from({ length: mcb4pCount }).map((_, idx) => (
-                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div id={`field-mcb4p_${idx}`}>
-                      <Select2
-                        label={`MCB 4P #${idx + 1} Rating`}
-                        name={`mcb4p_${idx}`}
-                        value={mcb4pTypes[idx]?.rating || ""}
-                        onChange={(e) => handleBreakerRatingChange("mcb4p", idx, e.target.value)}
-                        options={mcb4pOptions.length > 0 ? mcb4pOptions : fallbackMCB4P}
-                        placeholder={`Select MCB 4P #${idx + 1} Rating...`}
-                        error={errors[`mcb4p_${idx}`]}
-                      />
-                    </div>
-                    <div id={`field-mcb4p_brand_${idx}`}>
-                      <Select2
-                        label={`MCB 4P #${idx + 1} Brand`}
-                        name={`mcb4p_brand_${idx}`}
-                        value={mcb4pTypes[idx]?.brandId || ""}
-                        onChange={(e) => handleBreakerBrandChange("mcb4p", idx, e.target.value, mcbMakerOptions)}
-                        options={mcbMakerOptions}
-                        placeholder={`Select MCB 4P #${idx + 1} Brand...`}
-                        error={errors[`mcb4p_brand_${idx}`]}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* 4. Existing charger fields */}
             <div id="field-manufacturerId">
@@ -979,7 +845,144 @@ const ChargerSurvey = () => {
 
             <Input label="Voltage Input/Output" name="voltage" value={form.voltage} onChange={handleChange} placeholder="e.g. 415V AC / 750V DC" />
 
-            {/* Redundant standalone MCCB/MCB Maker fields removed as handled dynamically per breaker */}
+            {/* Breaker Configuration depending on Charger Type */}
+            {form.chargerType === "Fast" && (
+              <>
+                <div id="field-mccb4pCount" style={{ gridColumn: "1 / -1" }}>
+                  <Input
+                    label="MCCB 4P Count"
+                    type="number"
+                    min="0"
+                    value={mccb4pCount}
+                    onChange={(e) => handleBreakerCountInputChange("mccb4p", "MCCB 4P", e.target.value)}
+                    onBlur={() => handleBreakerCountBlur("mccb4p", "MCCB 4P")}
+                    placeholder="Enter MCCB 4P count (e.g. 2)"
+                    error={errors.mccb4pCount}
+                  />
+                </div>
+
+                {mccb4pCount > 0 && mccb4pTypes.map((t, idx) => (
+                  <div key={`mccb4p-${idx}`} style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "16px", padding: "16px", border: "1px solid var(--border-color)", borderRadius: "8px", backgroundColor: "rgba(255, 255, 255, 0.02)" }}>
+                    <h5 style={{ gridColumn: "1 / -1", fontSize: "14px", fontWeight: "600", margin: 0 }}>MCCB 4P #{idx + 1}</h5>
+                    <div id={`field-mccb4p_${idx}`}>
+                      <Select2
+                        label="Rating"
+                        value={t.rating}
+                        onChange={(e) => handleBreakerRatingChange("mccb4p", idx, e.target.value)}
+                        options={mccb4pOptions}
+                        placeholder="Select Rating..."
+                        required
+                        error={errors[`mccb4p_${idx}`]}
+                      />
+                    </div>
+                    <div id={`field-mccb4p_brand_${idx}`}>
+                      <Select2
+                        label="Maker / Brand"
+                        value={t.brandId}
+                        onChange={(e) => handleBreakerBrandChange("mccb4p", idx, e.target.value, mccbMakerOptions)}
+                        options={mccbMakerOptions}
+                        placeholder="Select Brand..."
+                        required={t.rating && t.rating !== "N/A"}
+                        disabled={!t.rating || t.rating === "N/A"}
+                        error={errors[`mccb4p_brand_${idx}`]}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {form.chargerType === "Slow" && (
+              <>
+                <div id="field-mcb2pCount" style={{ gridColumn: "1 / -1" }}>
+                  <Input
+                    label="MCB 2P Count"
+                    type="number"
+                    min="0"
+                    value={mcb2pCount}
+                    onChange={(e) => handleBreakerCountInputChange("mcb2p", "MCB 2P", e.target.value)}
+                    onBlur={() => handleBreakerCountBlur("mcb2p", "MCB 2P")}
+                    placeholder="Enter MCB 2P count (e.g. 2)"
+                    error={errors.mcb2pCount}
+                  />
+                </div>
+
+                {mcb2pCount > 0 && mcb2pTypes.map((t, idx) => (
+                  <div key={`mcb2p-${idx}`} style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "16px", padding: "16px", border: "1px solid var(--border-color)", borderRadius: "8px", backgroundColor: "rgba(255, 255, 255, 0.02)" }}>
+                    <h5 style={{ gridColumn: "1 / -1", fontSize: "14px", fontWeight: "600", margin: 0 }}>MCB 2P #{idx + 1}</h5>
+                    <div id={`field-mcb2p_${idx}`}>
+                      <Select2
+                        label="Rating"
+                        value={t.rating}
+                        onChange={(e) => handleBreakerRatingChange("mcb2p", idx, e.target.value)}
+                        options={mcb2pOptions}
+                        placeholder="Select Rating..."
+                        required
+                        error={errors[`mcb2p_${idx}`]}
+                      />
+                    </div>
+                    <div id={`field-mcb2p_brand_${idx}`}>
+                      <Select2
+                        label="Maker / Brand"
+                        value={t.brandId}
+                        onChange={(e) => handleBreakerBrandChange("mcb2p", idx, e.target.value, mcbMakerOptions)}
+                        options={mcbMakerOptions}
+                        placeholder="Select Brand..."
+                        required={t.rating && t.rating !== "N/A"}
+                        disabled={!t.rating || t.rating === "N/A"}
+                        error={errors[`mcb2p_brand_${idx}`]}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {(form.chargerType === "Fast" || form.chargerType === "Slow") && (
+              <>
+                <div id="field-mcb4pCount" style={{ gridColumn: "1 / -1" }}>
+                  <Input
+                    label="MCB 4P Count"
+                    type="number"
+                    min="0"
+                    value={mcb4pCount}
+                    onChange={(e) => handleBreakerCountInputChange("mcb4p", "MCB 4P", e.target.value)}
+                    onBlur={() => handleBreakerCountBlur("mcb4p", "MCB 4P")}
+                    placeholder="Enter MCB 4P count (e.g. 2)"
+                    error={errors.mcb4pCount}
+                  />
+                </div>
+
+                {mcb4pCount > 0 && mcb4pTypes.map((t, idx) => (
+                  <div key={`mcb4p-${idx}`} style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "16px", padding: "16px", border: "1px solid var(--border-color)", borderRadius: "8px", backgroundColor: "rgba(255, 255, 255, 0.02)" }}>
+                    <h5 style={{ gridColumn: "1 / -1", fontSize: "14px", fontWeight: "600", margin: 0 }}>MCB 4P #{idx + 1}</h5>
+                    <div id={`field-mcb4p_${idx}`}>
+                      <Select2
+                        label="Rating"
+                        value={t.rating}
+                        onChange={(e) => handleBreakerRatingChange("mcb4p", idx, e.target.value)}
+                        options={mcb4pOptions}
+                        placeholder="Select Rating..."
+                        required
+                        error={errors[`mcb4p_${idx}`]}
+                      />
+                    </div>
+                    <div id={`field-mcb4p_brand_${idx}`}>
+                      <Select2
+                        label="Maker / Brand"
+                        value={t.brandId}
+                        onChange={(e) => handleBreakerBrandChange("mcb4p", idx, e.target.value, mcbMakerOptions)}
+                        options={mcbMakerOptions}
+                        placeholder="Select Brand..."
+                        required={t.rating && t.rating !== "N/A"}
+                        disabled={!t.rating || t.rating === "N/A"}
+                        error={errors[`mcb4p_brand_${idx}`]}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
 
             <Select2
               label="Speed Category"

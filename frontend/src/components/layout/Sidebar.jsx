@@ -82,14 +82,6 @@ const Sidebar = () => {
           <span>Dashboard</span>
         </Link>
 
-        {/* FORMS LINK */}
-        {role !== "SURVEY_PERSON" && role !== "SURVEYOR" && (
-          <Link to="/forms" style={getLinkStyle("/forms")}>
-            <FileText size={18} opacity={location.pathname.startsWith("/forms") ? 1 : 0.75} />
-            <span>Forms</span>
-          </Link>
-        )}
-
 
         {/* ADMIN Links */}
         {role === "ADMIN" && (

@@ -37,6 +37,16 @@ const siteService = {
   deleteAssignment: async (id) => {
     return api.delete(`/survey-assignment/${id}`);
   },
+
+  bulkUploadSites: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post("/survey-sites/bulk-upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  },
 };
 
 export default siteService;

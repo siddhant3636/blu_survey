@@ -188,23 +188,78 @@ const FormDetails = () => {
     });
   };
 
+  let envApiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+  if (
+    typeof window !== "undefined" &&
+    window.location &&
+    !window.location.hostname.includes("localhost") &&
+    !window.location.hostname.includes("127.0.0.1") &&
+    envApiUrl.includes("localhost")
+  ) {
+    envApiUrl = window.location.origin + "/api/v1";
+  }
+  const apiBaseHost = envApiUrl.replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "");
+
+  const getFullImageUrl = (photo) => {
+    if (!photo) return "";
+    let rawPath = photo.url || photo.filePath || "";
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      return rawPath;
+    }
+    if (!rawPath.startsWith("/")) {
+      rawPath = `/${rawPath}`;
+    }
+    return `${apiBaseHost}${rawPath}`;
+  };
+
   const renderAssetPhotos = (assetPhotos) => {
     if (assetPhotos.length === 0) return null;
     return (
       <div style={{ gridColumn: "1 / -1", marginTop: "10px" }}>
         <strong style={{ display: "block", marginBottom: "6px", color: "var(--text-secondary)" }}>Attached Photos:</strong>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          {assetPhotos.map((p) => (
-            <div key={p.id} style={{ width: "90px", height: "90px", borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)", backgroundColor: "#000", position: "relative" }}>
-              <a href={p.url || p.filePath} target="_blank" rel="noreferrer">
-                <img src={p.url || p.filePath} alt={p.category?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              </a>
-              <span style={{ position: "absolute", bottom: "2px", left: "2px", backgroundColor: "rgba(0,0,0,0.7)", color: "#fff", fontSize: "8px", padding: "1px 3px", borderRadius: "2px", maxWidth: "86px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {p.category?.name?.split("-")?.pop()?.trim() || "Photo"}
-              </span>
-            </div>
-          ))}
+          {assetPhotos.map((p) => {
+            const imageUrl = getFullImageUrl(p);
+            return (
+              <div key={p.id} style={{ width: "90px", height: "90px", borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)", backgroundColor: "#000", position: "relative" }}>
+                <a href={imageUrl} target="_blank" rel="noreferrer">
+                  <img src={imageUrl} alt={p.category?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </a>
+                <span style={{ position: "absolute", bottom: "2px", left: "2px", backgroundColor: "rgba(0,0,0,0.7)", color: "#fff", fontSize: "8px", padding: "1px 3px", borderRadius: "2px", maxWidth: "86px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {p.category?.name?.split("-")?.pop()?.trim() || "Photo"}
+                </span>
+              </div>
+            );
+          })}
         </div>
+      </div>
+    );
+  };
+
+  const renderDetailItem = (label, value, isRequired = false) => {
+    const hasValue = value && String(value).trim() !== "" && String(value).trim().toLowerCase() !== "n/a" && String(value).trim().toLowerCase() !== "null";
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+        padding: "10px 12px",
+        borderRadius: "6px",
+        backgroundColor: "rgba(255, 255, 255, 0.015)",
+        border: "1px solid var(--border-color)",
+        fontSize: "12px",
+        minWidth: "140px"
+      }}>
+        <span style={{ color: "var(--text-secondary)", fontWeight: "500", fontSize: "11px" }}>{label}</span>
+        {hasValue ? (
+          <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{value}</span>
+        ) : isRequired ? (
+          <span style={{ color: "#ef4444", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            ⚠️ Not Filled
+          </span>
+        ) : (
+          <span style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>Optional / N/A</span>
+        )}
       </div>
     );
   };
@@ -327,23 +382,23 @@ const FormDetails = () => {
                       </Button>
                     )}
                   </div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Manufacturer:</span> <strong>{c.manufacturer?.name || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Model:</span> <strong>{c.model?.name || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Connector:</span> <strong>{c.connector?.type || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>MCCB Maker:</span> <strong>{c.mccbMaker?.name || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>MCB Maker:</span> <strong>{c.mcbMaker?.name || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Serial Number:</span> <strong>{c.serialNumber || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Capacity:</span> <strong>{c.powerRating || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Voltage:</span> <strong>{c.voltage || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Type & Speed:</span> <strong>{c.chargerType ? (c.chargerType === c.chargerCategory ? c.chargerType : `${c.chargerType} (${c.chargerCategory || "N/A"})`) : "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Current Status:</span> <strong>{c.currentStatus || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Display Working:</span> <strong>{c.displayWorking || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Cable Condition:</span> <strong>{c.cableCondition || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Earthing Status:</span> <strong>{c.earthingStatus || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Fire Safety:</span> <strong>{c.fireSafety || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Lighting Status:</span> <strong>{c.lightingStatus || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>GPS:</span> <strong>{c.latitude ? `${c.latitude.toFixed(4)}, ${c.longitude.toFixed(4)}` : "N/A"}</strong></div>
-                  <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--text-secondary)" }}>Remarks:</span> <strong>{c.remarks || "None"}</strong></div>
+                  {renderDetailItem("Manufacturer", c.manufacturer?.name, true)}
+                  {renderDetailItem("Model", c.model?.name, true)}
+                  {renderDetailItem("Connector Type", c.connector?.type, true)}
+                  {renderDetailItem("MCCB Maker", c.mccbMaker?.name, false)}
+                  {renderDetailItem("MCB Maker", c.mcbMaker?.name, false)}
+                  {renderDetailItem("Serial Number", c.serialNumber, false)}
+                  {renderDetailItem("Capacity (Power Rating)", c.powerRating, false)}
+                  {renderDetailItem("Voltage", c.voltage, false)}
+                  {renderDetailItem("Type & Speed", c.chargerType ? (c.chargerType === c.chargerCategory ? c.chargerType : `${c.chargerType} (${c.chargerCategory || "N/A"})`) : "N/A", true)}
+                  {renderDetailItem("Current Status", c.currentStatus, true)}
+                  {renderDetailItem("Display Working", c.displayWorking, true)}
+                  {renderDetailItem("Cable Condition", c.cableCondition, true)}
+                  {renderDetailItem("Earthing Status", c.earthingStatus, true)}
+                  {renderDetailItem("Fire Safety", c.fireSafety, true)}
+                  {renderDetailItem("Lighting Status", c.lightingStatus, true)}
+                  {renderDetailItem("GPS Location", c.latitude ? `${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}` : "N/A", true)}
+                  <div style={{ gridColumn: "1 / -1" }}>{renderDetailItem("Remarks & Specific Defect Description", c.remarks, false)}</div>
                   {renderBreakerList(c.mccb4p, "MCCB 4P")}
                   {renderBreakerList(c.mcb2p, "MCB 2P")}
                   {renderBreakerList(c.mcb4p, "MCB 4P")}
@@ -387,57 +442,58 @@ const FormDetails = () => {
                       </Button>
                     )}
                   </div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Name / Tag:</span> <strong>{p.name || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Capacity:</span> <strong>{p.capacity || "N/A"}</strong></div>
-                        {p.breakerRating && p.breakerRating.startsWith("{") ? (
-                          <div style={{ gridColumn: "1 / -1", backgroundColor: "rgba(255,255,255,0.01)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-                            <span style={{ color: "var(--text-secondary)", fontWeight: "700" }}>Breaker Panels Checklist:</span>
-                            {(() => {
-                              try {
-                                const parsed = JSON.parse(p.breakerRating);
-                                const sectionLabels = {
-                                  mainDistribution: "Main Distribution Charger Panel",
-                                  fastSlow: "Fast + Slow Charger Panel",
-                                  fast: "Fast Charger Panel",
-                                  slow: "Slow Charger Panel"
-                                };
-                                return Object.keys(sectionLabels).map((secKey) => {
-                                  const list = parsed[secKey] || [];
-                                  if (list.length === 0) return null;
-                                  return (
-                                    <div key={secKey} style={{ marginTop: "10px" }}>
-                                      <span style={{ color: "#6366f1", fontWeight: "600" }}>⚡ {sectionLabels[secKey]} ({list.length})</span>
-                                      <div style={{ paddingLeft: "12px", marginTop: "6px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                                        {list.map((panel, pIdx) => (
-                                          <div key={pIdx} style={{ backgroundColor: "rgba(255,255,255,0.01)", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)" }}>
-                                            <strong>Panel #{pIdx + 1}: {panel.name || "N/A"}</strong>
-                                            <div style={{ paddingLeft: "10px", marginTop: "4px" }}>
-                                              {panel.mccb4p && panel.mccb4p.length > 0 ? (
-                                                panel.mccb4p.map((mccb, mIdx) => (
-                                                  <div key={mIdx} style={{ color: "var(--text-secondary)" }}>
-                                                    • MCCB 4P #{mIdx + 1} - Rating: <strong>{mccb.rating || "N/A"}</strong> | Brand: <strong>{mccb.brand || "N/A"}</strong>
-                                                  </div>
-                                                ))
-                                              ) : (
-                                                <div style={{ color: "var(--text-secondary)" }}>No MCCB 4P breakers.</div>
-                                              )}
+                  {renderDetailItem("Name / Tag", p.name, true)}
+                  {renderDetailItem("Capacity Rating", p.capacity, true)}
+                  {p.breakerRating && p.breakerRating.startsWith("{") ? (
+                    <div style={{ gridColumn: "1 / -1", backgroundColor: "rgba(255,255,255,0.01)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                      <span style={{ color: "var(--text-secondary)", fontWeight: "700" }}>Breaker Panels Checklist:</span>
+                      {(() => {
+                        try {
+                          const parsed = JSON.parse(p.breakerRating);
+                          const sectionLabels = {
+                            mainDistribution: "Main Distribution Charger Panel",
+                            fastSlow: "Fast + Slow Charger Panel",
+                            fast: "Fast Charger Panel",
+                            slow: "Slow Charger Panel"
+                          };
+                          return Object.keys(sectionLabels).map((secKey) => {
+                            const list = parsed[secKey] || [];
+                            if (list.length === 0) return null;
+                            return (
+                              <div key={secKey} style={{ marginTop: "10px" }}>
+                                <span style={{ color: "#6366f1", fontWeight: "600" }}>⚡ {sectionLabels[secKey]} ({list.length})</span>
+                                <div style={{ paddingLeft: "12px", marginTop: "6px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                  {list.map((panel, pIdx) => (
+                                    <div key={pIdx} style={{ backgroundColor: "rgba(255,255,255,0.01)", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)" }}>
+                                      <strong>Panel #{pIdx + 1}: {panel.name || "N/A"}</strong>
+                                      <div style={{ paddingLeft: "10px", marginTop: "4px" }}>
+                                        {panel.mccb4p && panel.mccb4p.length > 0 ? (
+                                          panel.mccb4p.map((mccb, mIdx) => (
+                                            <div key={mIdx} style={{ color: "var(--text-secondary)" }}>
+                                              • MCCB 4P #{mIdx + 1} - Rating: <strong>{mccb.rating || "N/A"}</strong> | Brand: <strong>{mccb.brand || "N/A"}</strong>
                                             </div>
-                                          </div>
-                                        ))}
+                                          ))
+                                        ) : (
+                                          <div style={{ color: "var(--text-secondary)" }}>No MCCB 4P breakers.</div>
+                                        )}
                                       </div>
                                     </div>
-                                  );
-                                });
-                              } catch (e) {
-                                return <strong>Invalid panel JSON structure</strong>;
-                              }
-                            })()}
-                          </div>
-                        ) : (
-                          <div><span style={{ color: "var(--text-secondary)" }}>Breaker Make / Rating:</span> <strong>{p.breakerRating || "N/A"}</strong></div>
-                        )}
-                  <div><span style={{ color: "var(--text-secondary)" }}>Cable Size:</span> <strong>{p.cableSize || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>GPS:</span> <strong>{p.latitude ? `${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}` : "N/A"}</strong></div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          });
+                        } catch (e) {
+                          return <strong>Invalid panel JSON structure</strong>;
+                        }
+                      })()}
+                    </div>
+                  ) : (
+                    renderDetailItem("Breaker Make / Rating (Legacy)", p.breakerRating, false)
+                  )}
+                  {renderDetailItem("Incoming Cable Size & Spec", p.cableSize, false)}
+                  {renderDetailItem("Incoming Source", p.incomingSource, false)}
+                  {renderDetailItem("GPS Location", p.latitude ? `${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}` : "N/A", true)}
                   {renderAssetPhotos(getAssetPhotos("Panel", p.assetIndex))}
                 </div>
               ))
@@ -478,12 +534,12 @@ const FormDetails = () => {
                       </Button>
                     )}
                   </div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Capacity:</span> <strong>{t.capacityKVA ? `${t.capacityKVA} KVA` : "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Voltage Ratio:</span> <strong>{t.voltageRatio || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Rated Current:</span> <strong>{t.currentRating || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Oil Level OK:</span> <strong>{t.oilLevelOk ? "Yes" : "No"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Earthing Status:</span> <strong>{t.earthingStatus || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>GPS:</span> <strong>{t.latitude ? `${t.latitude.toFixed(4)}, ${t.longitude.toFixed(4)}` : "N/A"}</strong></div>
+                  {renderDetailItem("Capacity", t.capacityKVA ? `${t.capacityKVA} KVA` : null, true)}
+                  {renderDetailItem("Voltage Ratio", t.voltageRatio, true)}
+                  {renderDetailItem("Rated Current", t.currentRating, true)}
+                  {renderDetailItem("Oil Level OK", t.oilLevelOk ? "Yes" : "No", true)}
+                  {renderDetailItem("Earthing Status", t.earthingStatus, true)}
+                  {renderDetailItem("GPS Location", t.latitude ? `${t.latitude.toFixed(6)}, ${t.longitude.toFixed(6)}` : "N/A", true)}
                   {renderAssetPhotos(getAssetPhotos("Transformer", t.assetIndex))}
                 </div>
               ))
@@ -524,11 +580,11 @@ const FormDetails = () => {
                       </Button>
                     )}
                   </div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Capacity:</span> <strong>{d.capacityKVA ? `${d.capacityKVA} KVA` : "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Fuel Tank:</span> <strong>{d.fuelTankLitres ? `${d.fuelTankLitres} Litres` : "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>AMF Panel:</span> <strong>{d.amfPanelPresent ? "Yes" : "No"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>Earthing:</span> <strong>{d.earthingStatus || "N/A"}</strong></div>
-                  <div><span style={{ color: "var(--text-secondary)" }}>GPS:</span> <strong>{d.latitude ? `${d.latitude.toFixed(4)}, ${d.longitude.toFixed(4)}` : "N/A"}</strong></div>
+                  {renderDetailItem("Capacity", d.capacityKVA ? `${d.capacityKVA} KVA` : null, true)}
+                  {renderDetailItem("Fuel Tank Capacity", d.fuelTankLitres ? `${d.fuelTankLitres} Litres` : null, true)}
+                  {renderDetailItem("AMF Panel Present", d.amfPanelPresent ? "Yes" : "No", true)}
+                  {renderDetailItem("Earthing pit Status", d.earthingStatus, true)}
+                  {renderDetailItem("GPS Location", d.latitude ? `${d.latitude.toFixed(6)}, ${d.longitude.toFixed(6)}` : "N/A", true)}
                   {renderAssetPhotos(getAssetPhotos("DG", d.assetIndex))}
                 </div>
               ))
@@ -546,16 +602,19 @@ const FormDetails = () => {
           <p style={{ color: "var(--text-secondary)", fontSize: "13px" }}>No photos attached to this survey.</p>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "10px" }}>
-            {photos.map((p) => (
-              <div key={p.id} style={{ borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)", aspectRatio: "1/1", backgroundColor: "#000", position: "relative" }}>
-                <a href={p.url || p.filePath} target="_blank" rel="noreferrer">
-                  <img src={p.url || p.filePath} alt={p.category?.name || "Photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                </a>
-                <span style={{ position: "absolute", bottom: "4px", left: "4px", backgroundColor: "rgba(0,0,0,0.75)", color: "#fff", fontSize: "10px", padding: "2px 6px", borderRadius: "3px" }}>
-                  {p.category?.name || "PHOTO"}
-                </span>
-              </div>
-            ))}
+            {photos.map((p) => {
+              const imageUrl = getFullImageUrl(p);
+              return (
+                <div key={p.id} style={{ borderRadius: "6px", overflow: "hidden", border: "1px solid var(--border-color)", aspectRatio: "1/1", backgroundColor: "#000", position: "relative" }}>
+                  <a href={imageUrl} target="_blank" rel="noreferrer">
+                    <img src={imageUrl} alt={p.category?.name || "Photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </a>
+                  <span style={{ position: "absolute", bottom: "4px", left: "4px", backgroundColor: "rgba(0,0,0,0.75)", color: "#fff", fontSize: "10px", padding: "2px 6px", borderRadius: "3px" }}>
+                    {p.category?.name || "PHOTO"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>
