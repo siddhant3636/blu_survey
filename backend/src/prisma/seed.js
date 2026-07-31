@@ -90,6 +90,18 @@ async function main() {
   ];
 
   for (const mfg of manufacturers) {
+    if (!mfg.models || mfg.models.length === 0) {
+      mfg.models = [
+        { name: `${mfg.name} AC 7.4kW`, powerRating: "7.4kW" },
+        { name: `${mfg.name} AC 22kW`, powerRating: "22kW" },
+        { name: `${mfg.name} DC 30kW`, powerRating: "30kW" },
+        { name: `${mfg.name} DC 60kW`, powerRating: "60kW" },
+        { name: `${mfg.name} DC 120kW`, powerRating: "120kW" },
+        { name: `${mfg.name} DC 180kW`, powerRating: "180kW" },
+        { name: `${mfg.name} DC 240kW`, powerRating: "240kW" },
+      ];
+    }
+
     const createdMfg = await prisma.chargerManufacturer.upsert({
       where: { name: mfg.name },
       update: {},
@@ -188,8 +200,13 @@ async function main() {
   for (const cat of masterDataCategories) {
     for (const val of cat.values) {
       await prisma.equipment.upsert({
-        where: { name: val },
-        update: { description: cat.name },
+        where: {
+          name_description: {
+            name: val,
+            description: cat.name
+          }
+        },
+        update: {},
         create: { name: val, description: cat.name }
       });
     }

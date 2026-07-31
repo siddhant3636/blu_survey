@@ -315,7 +315,7 @@ model Connector {
 
 model Equipment {
   id          String    @id @default(uuid())
-  name        String    @unique
+  name        String
   description String?
   isActive    Boolean   @default(true)
   isDeleted   Boolean   @default(false)
@@ -324,6 +324,8 @@ model Equipment {
 
   mccbChargers Charger[] @relation("MccbMakerEquipment")
   mcbChargers  Charger[] @relation("McbMakerEquipment")
+
+  @@unique([name, description])
 }
 
 model PhotoCategory {

@@ -26,7 +26,10 @@ const createEquipment = async (data) => {
   if (!name) throw new Error("Equipment entry name is required.");
 
   const existing = await prisma.equipment.findFirst({
-    where: { name: { equals: name, mode: "insensitive" } },
+    where: {
+      name: { equals: name, mode: "insensitive" },
+      description: description ? { equals: description, mode: "insensitive" } : null,
+    },
   });
 
   if (existing) {
@@ -52,23 +55,24 @@ const updateEquipment = async (id, data) => {
   const existing = await getEquipmentById(id);
   const updateData = {};
 
-  if (data.name !== undefined) {
-    const name = data.name.trim();
+  const name = data.name !== undefined ? data.name.trim() : existing.name;
+  const description = data.description !== undefined ? (data.description ? data.description.trim() : null) : existing.description;
+
+  if (data.name !== undefined || data.description !== undefined) {
     if (!name) throw new Error("Equipment name cannot be empty.");
 
     const duplicate = await prisma.equipment.findFirst({
       where: {
         name: { equals: name, mode: "insensitive" },
+        description: description ? { equals: description, mode: "insensitive" } : null,
         id: { not: id },
         isDeleted: false,
       },
     });
     if (duplicate) throw new Error(`Equipment entry '${name}' already exists.`);
-    updateData.name = name;
-  }
-
-  if (data.description !== undefined) {
-    updateData.description = data.description ? data.description.trim() : null;
+    
+    if (data.name !== undefined) updateData.name = name;
+    if (data.description !== undefined) updateData.description = description;
   }
 
   if (data.isActive !== undefined) {
